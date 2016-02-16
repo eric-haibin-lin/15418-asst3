@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "vertex_set.h"
 #include "graph.h"
@@ -32,11 +33,49 @@
  * type of this object, which allows for higher performance code
  * generation as these methods will be inlined.
  */
-template <class F>
-VertexSet *edgeMap(Graph g, VertexSet *u, F &f, bool removeDuplicates=true)
+    template <class F>
+     VertexSet *edgeMap(Graph g, VertexSet *u, F &f, bool removeDuplicates=true)
 {
-  // TODO: Implement
-  return NULL;
+    // TODO: Implement
+    VertexSet * results = newVertexSet(u->type, u->size, u->numNodes);
+    Vertex * vs = u->vertices;
+    int counter = 0;
+    if(true){
+        // dynamic if
+        bool * visited = NULL;
+        if(removeDuplicates){
+            visited = (bool*)malloc(sizeof(bool) * u->numNodes);
+            memset(visited, 0, sizeof(bool) * u->numNodes);
+        }
+#pragma omp parallel for
+        for(int i = 0 ; i < u->size; ++i){
+           // TODO make sure vertice here is the corresponding vertices in g; 
+            Vertex s = vs[i];    
+            const Vertex* start = outgoing_begin(g, s);
+            const Vertex* end = outgoing_end(g, s);
+#pragma omp parallel for 
+            for(const Vertex* v=start; v<end; v++){
+                Vertex vn = *v;
+                if(removeDuplicates && f.cond(vn) && f.update(s, vn) && !visited[vn]){
+#pragma omp critical
+                    {
+                        results->vertices[counter] = vn;
+                        counter++;
+                    }
+                    visited[vn] = true;
+                }
+                if(!removeDuplicates && f.cond(vn) && f.update(s, vn)){
+#pragma omp critical
+                    {
+                        results->vertices[counter] = vn;
+                        counter++;
+                    }
+                }
+            }
+        }
+    } 
+    results->size = counter;
+    return results;
 }
 
 
@@ -58,11 +97,34 @@ VertexSet *edgeMap(Graph g, VertexSet *u, F &f, bool removeDuplicates=true)
  * If returnSet is false, then the implementation of vertexMap should
  * return NULL (it need not build and create a vertex set)
  */
-template <class F>
+    template <class F>
 VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
 {
-  // TODO: Implement
-  return NULL;
+    // TODO: Implement
+    VertexSet * results = NULL;
+    if(returnSet){
+        results = newVertexSet(u->type, u->size, u->numNodes); 
+    }
+    Vertex * start = u->vertices; 
+    int counter = 0;
+#pragma omp parallel for                                                        
+    for (int i = 0; i < u->size; i++) {                                                      
+        if(f(start[i]) && returnSet) {
+#pragma omp critical 
+            {
+                results->vertices[counter] = start[i];
+                counter++;
+            }
+        }
+    }
+    if(returnSet){
+        results->size = counter;
+        //TODO size may excceed capacity;
+        return results;
+    } else {
+        return NULL;
+    }
+
 }
 
 #endif /* __PARAGRAPH_H__ */
