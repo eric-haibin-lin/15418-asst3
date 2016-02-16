@@ -169,38 +169,11 @@ VertexSet *edgeMap_BotUp(Graph g, VertexSet *u, F &f, bool removeDuplicates, Ver
     return results;
 }
 
-/*
- * edgeMap --
- * 
- * Students will implement this function.
- * 
- * The input argument f is a class with the following methods defined:
- *   bool update(Vertex src, Vertex dst)
- *   bool cond(Vertex v)
- *
- * See apps/bfs.cpp for an example of such a class definition.
- * 
- * When the argument removeDuplicates is false, the implementation of
- * edgeMap need not remove duplicate vertices from the VertexSet it
- * creates when iterating over edges.  This is a performance
- * optimization when the application knows (and can tell ParaGraph)
- * that f.update() guarantees that duplicate vertices cannot appear in
- * the output vertex set.
- * 
- * Further notes: the implementation of edgeMap is templated on the
- * type of this object, which allows for higher performance code
- * generation as these methods will be inlined.
- */
-    template <class F>
-     VertexSet *edgeMap(Graph g, VertexSet *u, F &f, bool removeDuplicates=true)
+template<class F>
+VertexSet *edgeMap_TopDown(Graph g, VertexSet *u, F &f, bool removeDuplicates, VertexSet *results)
 {
-    // TODO: Implement
-    VertexSet * results = newVertexSet(u->type, u->numNodes, u->numNodes);
-    Vertex * vs = u->vertices;
     int counter = 0;
-    int dynamic_ratio = 0;
-    if(g->num_edges / g->num_nodes < dynamic_ratio){
-        // dynamic if when there is a small input
+    Vertex *vs = u->vertices;
         bool * visited = NULL;
         if(removeDuplicates){
             visited = (bool*)malloc(sizeof(bool) * u->numNodes);
@@ -236,10 +209,43 @@ VertexSet *edgeMap_BotUp(Graph g, VertexSet *u, F &f, bool removeDuplicates, Ver
             free(visited);
         }
         results->size = counter;
+    return results;
+}
+
+/*
+ * edgeMap --
+ * 
+ * Students will implement this function.
+ * 
+ * The input argument f is a class with the following methods defined:
+ *   bool update(Vertex src, Vertex dst)
+ *   bool cond(Vertex v)
+ *
+ * See apps/bfs.cpp for an example of such a class definition.
+ * 
+ * When the argument removeDuplicates is false, the implementation of
+ * edgeMap need not remove duplicate vertices from the VertexSet it
+ * creates when iterating over edges.  This is a performance
+ * optimization when the application knows (and can tell ParaGraph)
+ * that f.update() guarantees that duplicate vertices cannot appear in
+ * the output vertex set.
+ * 
+ * Further notes: the implementation of edgeMap is templated on the
+ * type of this object, which allows for higher performance code
+ * generation as these methods will be inlined.
+ */
+    template <class F>
+     VertexSet *edgeMap(Graph g, VertexSet *u, F &f, bool removeDuplicates=true)
+{
+    // TODO: Implement
+    VertexSet * results = newVertexSet(u->type, u->numNodes, u->numNodes);
+    int dynamic_ratio = 5;
+    if(g->num_edges / g->num_nodes < dynamic_ratio){
+        edgeMap_TopDown(g, u, f, removeDuplicates, results);
     } else {
         // TODO arge scale
-        //edgeMap_ES(g, u, f, removeDuplicates, results);
-        edgeMap_BotUp(g,u,f,removeDuplicates, results);
+        edgeMap_ES(g, u, f, removeDuplicates, results);
+        //edgeMap_BotUp(g,u,f,removeDuplicates, results);
     }
 
     return results;
