@@ -17,12 +17,20 @@
 VertexSet *newVertexSet(VertexSetType type, int capacity, int numNodes)
 {
   // TODO: Implement
-  return NULL;
+  VertexSet *new_vertex_set = (VertexSet *)malloc(sizeof(VertexSet));
+  new_vertex_set->size = capacity;
+  new_vertex_set->numNodes = numNodes;
+  new_vertex_set->type = type;
+  new_vertex_set->vertices = (Vertex *) malloc(sizeof(Vertex) * capacity);
+  return new_vertex_set;
 }
 
 void freeVertexSet(VertexSet *set)
 {
   // TODO: Implement
+  // free the vertices before the set is freed
+  free(set->vertices);
+  free(set);
 }
 
 /**
