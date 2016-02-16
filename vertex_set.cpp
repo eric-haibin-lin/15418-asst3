@@ -33,6 +33,16 @@ void freeVertexSet(VertexSet *set)
   free(set);
 }
 
+void addVertex(VertexSet *set, Vertex v)
+{
+  // TODO: Implement
+}
+
+void removeVertex(VertexSet *set, Vertex v)
+{
+  // TODO: Implement
+}
+
 /**
  * Returns the union of sets u and v. Destroys u and v.
  */

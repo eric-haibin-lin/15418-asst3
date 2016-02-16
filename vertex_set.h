@@ -14,8 +14,11 @@ typedef struct {
   Vertex* vertices;
 } VertexSet;
 
-VertexSet   *newVertexSet(VertexSetType type, int capacity, int numNodes);
-void        freeVertexSet(VertexSet *set);
+VertexSet *newVertexSet(VertexSetType type, int capacity, int numNodes);
+void freeVertexSet(VertexSet *set);
+
+void addVertex(VertexSet *set, Vertex v);
+void removeVertex(VertexSet *set, Vertex v);
 
 VertexSet*  vertexUnion(VertexSet *u, VertexSet* v);
 
