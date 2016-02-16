@@ -37,7 +37,7 @@
      VertexSet *edgeMap(Graph g, VertexSet *u, F &f, bool removeDuplicates=true)
 {
     // TODO: Implement
-    VertexSet * results = newVertexSet(u->type, u->size, u->numNodes);
+    VertexSet * results = newVertexSet(u->type, u->numNodes, u->numNodes);
     Vertex * vs = u->vertices;
     int counter = 0;
     if(true){
@@ -73,6 +73,9 @@
                 }
             }
         }
+        if(removeDuplicates){
+            free(visited);
+        }
     } 
     results->size = counter;
     return results;
@@ -100,7 +103,6 @@
     template <class F>
 VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
 {
-    // TODO: Implement
     VertexSet * results = NULL;
     if(returnSet){
         results = newVertexSet(u->type, u->size, u->numNodes); 

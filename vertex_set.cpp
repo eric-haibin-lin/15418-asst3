@@ -16,31 +16,47 @@
  */
 VertexSet *newVertexSet(VertexSetType type, int capacity, int numNodes)
 {
-  // TODO: Implement
-  VertexSet *new_vertex_set = (VertexSet *)malloc(sizeof(VertexSet));
-  new_vertex_set->size = 0;
-  new_vertex_set->numNodes = numNodes;
-  new_vertex_set->type = type;
-  new_vertex_set->vertices = (Vertex *) malloc(sizeof(Vertex) * capacity);
-  return new_vertex_set;
+    // TODO: Implement
+    VertexSet *new_vertex_set = (VertexSet *)malloc(sizeof(VertexSet));
+    new_vertex_set->size = 0;
+    new_vertex_set->numNodes = numNodes;
+    new_vertex_set->type = type;
+    new_vertex_set->vertices = (Vertex *) malloc(sizeof(Vertex) * capacity);
+    return new_vertex_set;
 }
 
 void freeVertexSet(VertexSet *set)
 {
-  // TODO: Implement
-  // free the vertices before the set is freed
-  free(set->vertices);
-  free(set);
+    // TODO: Implement
+    // free the vertices before the set is freed
+    free(set->vertices);
+    free(set);
 }
 
 void addVertex(VertexSet *set, Vertex v)
 {
-  // TODO: Implement
+    // TODO: Implement
+    set->vertices[set->size++] = v;
 }
 
 void removeVertex(VertexSet *set, Vertex v)
 {
-  // TODO: Implement
+    // TODO: Implement
+    // O(n) version;
+    Vertex* vs = set->vertices;
+    int pos = -1;
+    for(int i = 0; i < set->size; ++i){
+        if(vs[i] == v){
+            pos = i;
+            break;
+        }
+    }
+    if(pos == -1){
+        // vertice not found;
+        return;
+    }
+    memcpy(vs+pos, vs+pos+1, set->size - pos - 1);
+    return;
 }
 
 /**
@@ -48,11 +64,11 @@ void removeVertex(VertexSet *set, Vertex v)
  */
 VertexSet* vertexUnion(VertexSet *u, VertexSet* v)
 {
-  // TODO: Implement
+    // TODO: Implement
 
-  // STUDENTS WILL ONLY NEED TO IMPLEMENT THIS FUNCTION IN PART 3 OF
-  // THE ASSIGNMENT
+    // STUDENTS WILL ONLY NEED TO IMPLEMENT THIS FUNCTION IN PART 3 OF
+    // THE ASSIGNMENT
 
-  return NULL;
+    return NULL;
 }
 
