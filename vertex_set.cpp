@@ -18,7 +18,7 @@ VertexSet *newVertexSet(VertexSetType type, int capacity, int numNodes)
 {
   // TODO: Implement
   VertexSet *new_vertex_set = (VertexSet *)malloc(sizeof(VertexSet));
-  new_vertex_set->size = capacity;
+  new_vertex_set->size = 0;
   new_vertex_set->numNodes = numNodes;
   new_vertex_set->type = type;
   new_vertex_set->vertices = (Vertex *) malloc(sizeof(Vertex) * capacity);
