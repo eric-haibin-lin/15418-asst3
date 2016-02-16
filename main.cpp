@@ -154,18 +154,22 @@ int main(int argc, char** argv)
   std::cout << "Running on device " << arguments.device << std::endl;
   sep(std::cout);
 
-  int max_threads, thread_count;
-  bool incremental = true;
+  int sys_max_threads, max_threads, min_threads;
 
   // Get the number of available threads on the MIC or host device
   #pragma offload target(mic: arguments.device)
-  max_threads = omp_get_max_threads();
+  sys_max_threads = omp_get_max_threads();
 
   if (arguments.threads > 0) {
-    thread_count = std::min(arguments.threads, max_threads);
-    incremental = false;
+    max_threads = std::min(arguments.threads, sys_max_threads);
+    min_threads = max_threads;
+  } else if (arguments.app == GRADE) {
+    // Grading starts from 64 threads
+    min_threads = std::min(64, sys_max_threads);
+    max_threads = sys_max_threads;
   } else {
-    thread_count = max_threads;
+    min_threads = 1;
+    max_threads = sys_max_threads;
   }
 
   // Test correctness only.
@@ -177,7 +181,8 @@ int main(int argc, char** argv)
   std::cout << std::endl;
   sep(std::cout);
   std::cout << "Max system threads = " << max_threads << std::endl;
-  std::cout << "Running with " << thread_count <<  " threads" << std::endl;
+  std::cout << "Running " << min_threads <<  "-" << max_threads << " threads";
+  std::cout << std::endl;
   sep(std::cout);
 
   std::cout << std::endl;
@@ -198,7 +203,7 @@ int main(int argc, char** argv)
     timingApp(timing, "BFS");
     possiblePoints += MAX_POINTS;
     points += TIME_MIC(bfs_ref, bfs, int)
-      (timing, arguments.device, numTrials, thread_count, incremental,
+      (timing, arguments.device, numTrials, min_threads, max_threads,
       compareArrays<int>, graph);
   }
   if (arguments.app == PAGERANK || arguments.app == GRADE) {
@@ -206,7 +211,7 @@ int main(int argc, char** argv)
     timingApp(timing, "PageRank");
     possiblePoints += MAX_POINTS;
     points += TIME_MIC(pageRankRefWrapper, pageRankWrapper, float)
-      (timing, arguments.device, numTrials, thread_count, incremental,
+      (timing, arguments.device, numTrials, min_threads, max_threads,
       compareApprox<float>, graph);
   }
   if (arguments.app == KBFS || arguments.app == GRADE) {
@@ -214,14 +219,14 @@ int main(int argc, char** argv)
     timingApp(timing, "kBFS");
     possiblePoints += MAX_POINTS;
     points += TIME_MIC(kBFS_ref, kBFS, int)
-      (timing, arguments.device, numTrials, thread_count, incremental,
+      (timing, arguments.device, numTrials, min_threads, max_threads,
       compareArraysAndRadiiEst<int>, graph);
   }
   if (arguments.app == DECOMP) {
     /* GraphDecomposition */
     timingApp(timing, "Graph Decomposition");
     TIME_MIC(graphDecompRefWrapper, graphDecompWrapper, int)
-      (timing, arguments.device, numTrials, thread_count, incremental,
+      (timing, arguments.device, numTrials, min_threads, max_threads,
       compareArraysAndDisplay<int>, graph);
   }
 

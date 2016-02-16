@@ -59,8 +59,8 @@ double timeMic
   ( std::stringstream& timing
   , int device
   , int numTrials
-  , int threadCount
-  , bool incremental
+  , int minThreadCount
+  , int maxThreadCount 
   , bool (*check)(Graph g, T* refSolution, T* stuSolution)
   , Graph graph
   // , Args... args
@@ -122,12 +122,8 @@ double timeMic
   double refBestTime = DBL_MAX;
   double stuBestTime = DBL_MAX;
 
-  for ( int threads = (incremental) ? 1 : threadCount
-      ;
-      ; threads = std::min(threadCount, threads * 2)
-      )
-  {
-    
+  int threads = minThreadCount;
+  while (true) {
     double refTime = 0;
     double stuTime = 0;
     for (int i = 0; i < numTrials; i++) {
@@ -223,9 +219,10 @@ double timeMic
     std::cout << std::left << std::setw(colSize) << stuSpeedup;
     std::cout << std::endl;
 
-
-    if (threads >= threadCount)
+    if (threads == maxThreadCount)
       break;
+    
+    threads = std::min(maxThreadCount, threads * 2);
   }
 
   /* Free graph data */

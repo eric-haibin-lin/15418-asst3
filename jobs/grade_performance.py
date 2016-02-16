@@ -16,14 +16,11 @@ GRAPHS = [
   "/home/15-418/asst3_graphs/random_500m.graph"
 ]
 
-MIN_THREADS = 64
-
 # runGraph returns the student's score and total possible score for runinng 3
 # algorithms on the given graph.
 def runGraph(paraGraph, g):
   args = [
     paraGraph,
-    "-t" + str(MIN_THREADS),
     "grade",
     g,
   ]
@@ -41,7 +38,7 @@ def runGraph(paraGraph, g):
     else:
       break
 
-  return -1
+  return -1, -1
 
 def main():
   if len(sys.argv) != 2:
