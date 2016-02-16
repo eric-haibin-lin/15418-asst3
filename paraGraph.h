@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "vertex_set.h"
 #include "graph.h"
@@ -39,7 +40,13 @@
     VertexSet * results = newVertexSet(u->type, u->size, u->numNodes);
     Vertex * vs = u->vertices;
     int counter = 0;
-    if(!removeDuplicates){
+    if(true){
+        // dynamic if
+        bool * visited = NULL;
+        if(removeDuplicates){
+            visited = (bool*)malloc(sizeof(bool) * u->numNodes);
+            memset(visited, 0, sizeof(bool) * u->numNodes);
+        }
 #pragma omp parallel for
         for(int i = 0 ; i < u->size; ++i){
            // TODO make sure vertice here is the corresponding vertices in g; 
@@ -47,9 +54,17 @@
             const Vertex* start = outgoing_begin(g, s);
             const Vertex* end = outgoing_end(g, s);
 #pragma omp parallel for 
-            for(Vertex* v=start; v!=end; v++){
+            for(const Vertex* v=start; v<end; v++){
                 Vertex vn = *v;
-                if(f.cond(vn) && f.update(s, vn)){
+                if(removeDuplicates && f.cond(vn) && f.update(s, vn) && !visited[vn]){
+#pragma omp critical
+                    {
+                        results->vertices[counter] = vn;
+                        counter++;
+                    }
+                    visited[vn] = true;
+                }
+                if(!removeDuplicates && f.cond(vn) && f.update(s, vn)){
 #pragma omp critical
                     {
                         results->vertices[counter] = vn;
@@ -58,24 +73,9 @@
                 }
             }
         }
-    } else {
-        bool* visited = (bool*)malloc(sizeof(bool) * u->numNodes);
-#pragma omp prallel for
-        for(int i = 0; i < u->size; ++i) {
-            ifInU[vs[i]] = true;
-        }
-#pragma omp parallel for
-        for(int i = 0; i < u->numNodes; ++i){
-            Vertex vn = vs[i];
-            const Vertex* start = incoming_begin(g, vn);
-            const Vertex* end = incoming_end(g, vn);
-#pragma omp prallel for
-            for(Vertex* v = start; v!=end; v++){
-                Vertex 
-            }
-        }
-    }
-    return NULL;
+    } 
+    results->size = counter;
+    return results;
 }
 
 
