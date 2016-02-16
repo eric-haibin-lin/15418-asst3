@@ -112,7 +112,62 @@ VertexSet *edgeMap_ES(Graph g, VertexSet *u, F &f, bool removeDuplicates, Vertex
     return results;
 }
 
+template<class F>
+VertexSet *edgeMap_BotUp(Graph g, VertexSet *u, F &f, bool removeDuplicates, VertexSet * results){
+    if(results == NULL) return NULL;
+    Vertex * vs = u->vertices;
+    // let's assume malloc will always succeed on lateday
+    bool *temp = (bool *)malloc(sizeof(bool) * (u->numNodes));
+    memset(temp, 0, sizeof(bool)*(u->numNodes));
+    int count = 0;
 
+#pragma omp parallel for
+    for(int i = 0; i < u->size; ++i){
+        temp[vs[i]] = true;
+    }
+    if(removeDuplicates){
+#pragma omp parallel for  
+        for(int i = 0; i < u->numNodes; ++i){
+            Vertex vn = i;    
+            if(!f.cond(vn)) continue;
+            const Vertex* start = incoming_begin(g, vn);
+            const Vertex* end = incoming_end(g, vn);
+            bool ifvisited = false;
+#pragma omp parallel for 
+            for(const Vertex* v=start; v<end; v++){
+                Vertex s = *v;
+                if(temp[s] && f.update(s, vn) && !ifvisited){
+#pragma omp critical
+                    {
+                        results->vertices[count++] = vn; 
+                    }
+                }
+            }
+        }
+    } else {
+#pragma omp parallel for  
+        for(int i = 0; i < u->numNodes; ++i){
+            Vertex vn = i;    
+            if(!f.cond(vn)) continue;
+            const Vertex* start = incoming_begin(g, vn);
+            const Vertex* end = incoming_end(g, vn);
+#pragma omp parallel for 
+            for(const Vertex* v=start; v<end; v++){
+                Vertex s = *v;
+                if(temp[s] && f.update(s, vn)){
+#pragma omp critical
+                    {
+                        results->vertices[count++] = vn; 
+                    }
+                }
+            }
+        }
+    
+    }
+    free(temp);
+    results->size = count;
+    return results;
+}
 
 /*
  * edgeMap --
@@ -143,7 +198,7 @@ VertexSet *edgeMap_ES(Graph g, VertexSet *u, F &f, bool removeDuplicates, Vertex
     VertexSet * results = newVertexSet(u->type, u->numNodes, u->numNodes);
     Vertex * vs = u->vertices;
     int counter = 0;
-    int dynamic_ratio = 5;
+    int dynamic_ratio = 0;
     if(g->num_edges / g->num_nodes < dynamic_ratio){
         // dynamic if when there is a small input
         bool * visited = NULL;
@@ -183,7 +238,8 @@ VertexSet *edgeMap_ES(Graph g, VertexSet *u, F &f, bool removeDuplicates, Vertex
         results->size = counter;
     } else {
         // TODO arge scale
-        edgeMap_ES(g, u, f, removeDuplicates, results);
+        //edgeMap_ES(g, u, f, removeDuplicates, results);
+        edgeMap_BotUp(g,u,f,removeDuplicates, results);
     }
 
     return results;
