@@ -44,10 +44,6 @@ inline int inclusiveScan_inplace_yiming(int * arr, int n)
         for(i = work * mynum; i < (last = work * mynum + work < n ? work * mynum + work : n); i++)
             arr[i] += partial[mynum] - arr[last - 1];
     }
-    //for(int i = 0; i < n; ++i){
-    //    printf("%d\t", arr[i]);
-    //}
-    //printf("\n");
     free(partial);
     free(temp);
     return 0;
@@ -244,7 +240,11 @@ VertexSet *edgeMap_TopDown(Graph g, VertexSet *u, F &f, bool removeDuplicates, V
     } else {
         // TODO arge scale
         //edgeMap_ES(g, u, f, removeDuplicates, results);
-        edgeMap_BotUp(g,u,f,removeDuplicates, results);
+        if(removeDuplicates){
+            edgeMap_BotUp(g,u,f,removeDuplicates, results);
+        } else {
+            edgeMap_TopDown(g, u, f, removeDuplicates, results);
+        }
     }
 
     return results;
