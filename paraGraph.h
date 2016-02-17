@@ -281,12 +281,12 @@ VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
     int counter = 0;
 #pragma omp parallel for                                                        
     for (int i = 0; i < u->size; i++) {                                                      
-        if(f(start[i]) && returnSet) {
 #pragma omp critical 
-            {
+        {
+        if(f(start[i]) && returnSet) {
                 results->vertices[counter] = start[i];
                 counter++;
-            }
+        }
         }
     }
     if(returnSet){
