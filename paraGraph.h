@@ -136,8 +136,8 @@ VertexSet *edgeMap_BotUp(Graph g, VertexSet *u, F &f, bool removeDuplicates, Ver
 #pragma omp parallel for 
             for(const Vertex* v=start; v<end; v++){
                 Vertex s = *v;
-                if(temp[s] && f.update(s, vn) && !ifvisited){
 #pragma omp critical
+                if(temp[s] && f.update(s, vn) && !ifvisited){
                     {
                         results->vertices[count++] = vn; 
                     }
@@ -154,8 +154,8 @@ VertexSet *edgeMap_BotUp(Graph g, VertexSet *u, F &f, bool removeDuplicates, Ver
 #pragma omp parallel for 
             for(const Vertex* v=start; v<end; v++){
                 Vertex s = *v;
-                if(temp[s] && f.update(s, vn)){
 #pragma omp critical
+                if(temp[s] && f.update(s, vn)){
                     {
                         results->vertices[count++] = vn; 
                     }
@@ -188,8 +188,8 @@ VertexSet *edgeMap_TopDown(Graph g, VertexSet *u, F &f, bool removeDuplicates, V
 #pragma omp parallel for 
             for(const Vertex* v=start; v<end; v++){
                 Vertex vn = *v;
-                if(removeDuplicates && f.cond(vn) && f.update(s, vn) && !visited[vn]){
 #pragma omp critical
+                if(removeDuplicates && f.cond(vn) && f.update(s, vn) && !visited[vn]){
                     {
                         results->vertices[counter] = vn;
                         counter++;
@@ -197,7 +197,6 @@ VertexSet *edgeMap_TopDown(Graph g, VertexSet *u, F &f, bool removeDuplicates, V
                     visited[vn] = true;
                 }
                 if(!removeDuplicates && f.cond(vn) && f.update(s, vn)){
-#pragma omp critical
                     {
                         results->vertices[counter] = vn;
                         counter++;
