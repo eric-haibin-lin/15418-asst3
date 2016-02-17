@@ -162,12 +162,23 @@ void kBFS(graph *g, int *distField) {
   Init i(S, visited, nextVisited, radii);
   vertexMap(ks, i, NORETURN);
 
+  VertexSet *newFrontier;
+
   while (frontier->size > 0) {
     iter = iter + 1;
     RadiiUpdate ru(visited, nextVisited, radii, iter);
-    frontier = edgeMap(g, frontier, ru);
+    newFrontier = edgeMap(g, frontier, ru);
+
+    freeVertexSet(frontier);
+    frontier = newFrontier;
+
     VisitedCopy vc(visited, nextVisited);
     vertexMap(frontier, vc, NORETURN);
+  }
+
+  for (int i = 0; i < g->num_nodes; i++) {
+    free(visited[i]);
+    free(nextVisited[i]);
   }
 
   freeVertexSet(frontier);
