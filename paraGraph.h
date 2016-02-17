@@ -243,8 +243,8 @@ VertexSet *edgeMap_TopDown(Graph g, VertexSet *u, F &f, bool removeDuplicates, V
         edgeMap_TopDown(g, u, f, removeDuplicates, results);
     } else {
         // TODO arge scale
-        edgeMap_ES(g, u, f, removeDuplicates, results);
-        //edgeMap_BotUp(g,u,f,removeDuplicates, results);
+        //edgeMap_ES(g, u, f, removeDuplicates, results);
+        edgeMap_BotUp(g,u,f,removeDuplicates, results);
     }
 
     return results;
