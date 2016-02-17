@@ -7,6 +7,7 @@ typedef enum {
   SPARSE,
 } VertexSetType;
 
+//TODO add bitmap to this structure
 typedef struct {
   int size;     // Number of nodes in the set
   int numNodes; // Number of nodes in the graph
