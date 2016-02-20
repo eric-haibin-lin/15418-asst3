@@ -241,10 +241,9 @@ VertexSet *edgeMap_TopDown_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicat
  * type of this object, which allows for higher performance code
  * generation as these methods will be inlined.
  */
-
-
-    template <class F>
-     VertexSet *edgeMap(Graph g, VertexSet *u, F &f, bool removeDuplicates=true)
+template <class F>
+static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
+    bool removeDuplicates=true)
 {
     // TODO: Implement
     VertexSet * results = newVertexSet(u->type, u->numNodes, u->numNodes);
@@ -325,8 +324,8 @@ VertexSet *edgeMap_TopDown_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicat
  * If returnSet is false, then the implementation of vertexMap should
  * return NULL (it need not build and create a vertex set)
  */
-    template <class F>
-VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
+template <class F>
+static VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
 {
     VertexSet * results = NULL;
     if(returnSet){
