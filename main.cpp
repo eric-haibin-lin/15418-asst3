@@ -222,9 +222,10 @@ int main(int argc, char** argv)
       (timing, arguments.device, numTrials, min_threads, max_threads,
       compareArraysAndRadiiEst<int>, graph);
   }
-  if (arguments.app == DECOMP) {
+  if (arguments.app == DECOMP || arguments.app == GRADE) {
     /* GraphDecomposition */
     timingApp(timing, "Graph Decomposition");
+    possiblePoints += MAX_POINTS;
     TIME_MIC(graphDecompRefWrapper, graphDecompWrapper, int)
       (timing, arguments.device, numTrials, min_threads, max_threads,
       compareArraysAndDisplay<int>, graph);

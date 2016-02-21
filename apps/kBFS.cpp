@@ -103,7 +103,7 @@ class Init
 
       while (!success) {
 	success = __sync_bool_compare_and_swap(&nextVisited[v][word], oldWord, newWord);
-    	oldWord = visited[v][word];
+    	oldWord = nextVisited[v][word];
 	newWord = oldWord | 1 << bit;
       }
 
