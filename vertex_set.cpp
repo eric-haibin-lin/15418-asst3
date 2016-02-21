@@ -100,7 +100,7 @@ void removeVertex(VertexSet *set, Vertex v)
 }
 
 void printBitMap(VertexSet *set){
-    printf("==========================================================\n");
+    printf("BITMAP:%d==========================================================\n", set->numNodes);
     for(int i = 0; i < set->numNodes; ++i){
         printf("%d\t", set->vertices_bitMap[i]);
     }
@@ -110,7 +110,7 @@ void printBitMap(VertexSet *set){
 }
 
 void printVertices(VertexSet *set){
-    printf("==========================================================\n");
+    printf("ARRAY:%d==========================================================\n", set->size);
     for(int i = 0; i < set->size; ++i){
         printf("%d\t", set->vertices[i]);
     }
