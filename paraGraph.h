@@ -252,16 +252,9 @@ VertexSet *edgeMap_TopDown_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicat
  * type of this object, which allows for higher performance code
  * generation as these methods will be inlined.
  */
-<<<<<<< HEAD
-
-
-    template <class F>
-VertexSet *edgeMap(Graph g, VertexSet *u, F &f, bool removeDuplicates=true)
-=======
 template <class F>
 static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
     bool removeDuplicates=true)
->>>>>>> 1692a109ae078076f885c7c40202a59bbf2379ed
 {
     // TODO: Implement
     //printf("Calling EMAP!\n");
