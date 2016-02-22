@@ -185,8 +185,9 @@ VertexSet *edgeMap_TopDown_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicat
  * generation as these methods will be inlined.
  */
 
-    template <class F>
-VertexSet *edgeMap(Graph g, VertexSet *u, F &f, bool removeDuplicates=true)
+template <class F>
+static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
+    bool removeDuplicates=true)
 {
     VertexSet * results = newVertexSet(u->type, u->numNodes, u->numNodes);
    if(u->size * D_RATIO < u->numNodes){
