@@ -21,9 +21,13 @@ class Bfs
     }
 
     bool update(Vertex src, Vertex dst) {
-      if (distances_[dst] == NA)
-        return __sync_bool_compare_and_swap(&distances_[dst], NA, currentDistance);
-      return false;
+      if (distances_[dst] == NA){
+        distances_[dst] = currentDistance;
+        return true;
+      }
+        //return __sync_bool_compare_and_swap(&distances_[dst], NA, currentDistance);
+
+    return false;
     }
 
     bool cond(Vertex v) {

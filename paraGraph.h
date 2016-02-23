@@ -13,7 +13,6 @@
 
 #define D_RATIO 1000
 
-
 inline int inclusiveScan_inplace_yiming(int * arr, int n)
 {
     int  *partial, *temp;
@@ -98,7 +97,7 @@ VertexSet *edgeMap_BotUp_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicates
             }
         }
     }
-    
+
     results->size = size;
     return results;
 }
@@ -137,12 +136,42 @@ VertexSet *edgeMap_TopDown_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicat
     for(int i = 1; i < u->numNodes; ++i){
         if((diff = visited[i] - visited[i-1]) != 0){
             int offset = visited[i-1];
-                revs[offset] = i; 
+            revs[offset] = i; 
         }
     }
     free(visited);
     return results;
 }
+
+inline int pCountOutEdgeNum(Graph g, VertexSet *u)
+{
+    int count = 0;
+    if(u->ifarray){
+        Vertex* vs = u->vertices;
+        int size = u->size;
+#pragma omp parallel for schedule(dynamic, 512) reduction(+: count)
+        for(int i = 0 ; i < size; i++){
+            Vertex s = vs[i];    
+            const Vertex* start = outgoing_begin(g, s);
+            const Vertex* end = outgoing_end(g, s);
+            count += end - start;
+        }
+    } else {
+        int * u_bitmap = u->vertices_bitMap;
+        int numNodes = u->numNodes;
+#pragma omp parallel for schedule(dynamic, 512) reduction(+: count)
+        for(int i = 0 ; i < numNodes; i++){
+            if(u_bitmap[i] == 0) continue;
+            Vertex s = i;    
+            const Vertex* start = outgoing_begin(g, s);
+            const Vertex* end = outgoing_end(g, s);
+            count += end - start;
+        }
+
+    }
+    return count;
+}
+
 
 /*
  * edgeMap --
@@ -172,7 +201,8 @@ static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
         bool removeDuplicates=true)
 {
     VertexSet * results = newVertexSet(u->type, u->numNodes, u->numNodes);
-    if( u->size * D_RATIO < u->numNodes){
+    int outgoingEdge = pCountOutEdgeNum(g, u);
+    if( (u->size + outgoingEdge) * D_RATIO < u->numNodes){
         // make sure it is ifarray type;
         if(!u->ifarray){
             u->ifarray = true;
