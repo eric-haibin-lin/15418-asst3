@@ -13,7 +13,7 @@
 #include "mic.h"
 
 #define D_RATIO 10
-
+#define NUM_THREAD 1000
 
 inline int inclusiveScan_inplace_yiming(int * arr, int n)
 {
@@ -59,40 +59,31 @@ VertexSet *edgeMap_BotUp_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicates
     // BotUp = bitmap now;
     //First we have to read information from u
     int * temp_bitMap;
-    if(u->ifarray){
-        printf("Array VSET in BOTUP\n");
-        return NULL;
-    } else {
-        temp_bitMap = u->vertices_bitMap;
-    }
+    temp_bitMap = u->vertices_bitMap;
 
     if(removeDuplicates){
-#pragma omp parallel for  
+#pragma omp parallel for schedule(dynamic, 512)  
         for(int i = 0; i < u->numNodes; ++i){
             Vertex vn = i;    
             const Vertex* start = incoming_begin(g, vn);
             const Vertex* end = incoming_end(g, vn);
             for(const Vertex* v=start; v<end; v++){
                 Vertex s = *v;
-                int bitmap_count = temp_bitMap[s];
-                while(bitmap_count>0 && f.cond(vn) && f.update(s, vn)){
+                if(temp_bitMap[s]>0 && f.cond(vn) && f.update(s, vn)){
                     results->vertices_bitMap[vn] = 1;
-                    bitmap_count--;
                 }
             }
         }
     } else {
-#pragma omp parallel for  
+#pragma omp parallel for schedule(dynamic, 512)  
         for(int i = 0; i < u->numNodes; ++i){
             Vertex vn = i;
             const Vertex* start = incoming_begin(g, vn);
             const Vertex* end = incoming_end(g, vn);
             for(const Vertex* v=start; v<end; v++){
                 Vertex s = *v;
-                int bitmap_count = temp_bitMap[s];
-                while(bitmap_count>0 && f.cond(vn) && f.update(s, vn)){
+                if(temp_bitMap[0] && f.cond(vn) && f.update(s, vn)){
                     results->vertices_bitMap[vn]++;
-                    bitmap_count--;
                 }
             }
         }
@@ -104,13 +95,7 @@ VertexSet *edgeMap_BotUp_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicates
 
     inclusiveScan_inplace_yiming(temp, u->numNodes+1);
     results->size = temp[u->numNodes];
-    //printf("Printing Temp:\n");
-    //for(int i = 0 ; i < u->numNodes+1; ++i){
-    //    printf("%d\t", temp[i]);
-    //}
-    //printf("\n");
     free(temp);
-    //remember to free(temp)
     return results;
 }
 
@@ -119,46 +104,44 @@ VertexSet *edgeMap_BotUp_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicates
 VertexSet *edgeMap_TopDown_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicates, VertexSet *results)
 {
     // assume array->array creation;
-    int counter = 0;
     Vertex *vs = u->vertices;
-    bool * visited = NULL;
-    if(removeDuplicates){
-        // resutls has vertices not NULL;
-        visited = (bool*)malloc(sizeof(bool) * u->numNodes);
-        memset(visited, 0, sizeof(bool) * u->numNodes);
-    }
-#pragma omp parallel for
+    int * visited = (int*)malloc(sizeof(int) * (u->numNodes+1));
+    memset(visited, 0, sizeof(int) * (u->numNodes+1));
+#pragma omp parallel for schedule(dynamic, 512)
     for(int i = 0 ; i < u->size; ++i){
         Vertex s = vs[i];    
         const Vertex* start = outgoing_begin(g, s);
         const Vertex* end = outgoing_end(g, s);
-        //#pragma omp parallel for 
+        //#pragma omp parallel for schedule(dynamic, 512) 
         for(const Vertex* v=start; v<end; v++){
             Vertex vn = *v;
             if(removeDuplicates && f.cond(vn) && f.update(s, vn)){
-#pragma omp critical
-                {
-                if(!visited[vn])
-                {
-                    results->vertices[counter] = vn;
-                    counter++;
-                    visited[vn] = true;
-                }
-                }
+                visited[vn] = 1;
             }
             if(!removeDuplicates && f.cond(vn) && f.update(s, vn)){
-#pragma omp critical
-                {
-                    results->vertices[counter] = vn;
-                    counter++;
-                }
+                visited[vn]++;
             }
         }
     }
-    if(removeDuplicates){
-        free(visited);
+    inclusiveScan_inplace_yiming(visited, u->numNodes+1);
+    results->size = visited[u->numNodes];
+    Vertex * revs = results->vertices;
+    int diff;
+    if(visited[0]!=0){
+        diff = visited[0];
+        for(int j = 0 ; j < diff; ++j){
+            revs[j] = 0;
+        }
     }
-    results->size = counter;
+#pragma omp parallel for schedule(dynamic, 512)
+    for(int i = 1; i < u->numNodes; ++i){
+        if((diff = visited[i] - visited[i-1]) != 0){
+            int offset = visited[i-1];
+            for(int j = 0 ; j < diff; ++j)
+                revs[offset + j] = i; 
+        }
+    }
+    free(visited);
     return results;
 }
 
@@ -185,24 +168,19 @@ VertexSet *edgeMap_TopDown_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicat
  * generation as these methods will be inlined.
  */
 
-template <class F>
+    template <class F>
 static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
-    bool removeDuplicates=true)
+        bool removeDuplicates=true)
 {
     VertexSet * results = newVertexSet(u->type, u->numNodes, u->numNodes);
-   if(u->size * D_RATIO < u->numNodes){
-    //if(false){
+    if(u->numNodes < NUM_THREAD  || u->size * D_RATIO < u->numNodes){
         // make sure it is ifarray type;
         if(!u->ifarray){
-            //printf("U is a BITMAP, Changing it to ARRAY...\n");
             u->ifarray = true;
             u->vertices = (Vertex *)malloc(u->size * sizeof(Vertex));
             Vertex *revs = u->vertices;
             int * temp_bitMap = u->vertices_bitMap; //Assume it is not NULL
-            if(temp_bitMap == NULL){ printf("Error EdgeMap: NULL BITMAP\n"); return NULL;}
-
             inclusiveScan_inplace_yiming(temp_bitMap, u->numNodes+1);
-
             int diff;
             if(temp_bitMap[0]!=0){
                 diff = temp_bitMap[0];
@@ -210,14 +188,10 @@ static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
                     revs[j] = 0;
                 }
             }
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic, 512)
             for(int i = 1; i < u->numNodes; ++i){
                 if((diff = temp_bitMap[i] - temp_bitMap[i-1]) != 0){
-                    // we have diff;
-                    int offset = temp_bitMap[i-1];
-                    for(int j = 0; j < diff; j++){
-                        revs[offset + j] = i; 
-                    }
+                    revs[temp_bitMap[i-1]] = i; 
                 }
             }
 
@@ -225,34 +199,26 @@ static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
             free(u->vertices_bitMap);
             u->vertices_bitMap = NULL;
         }
-        //printf("Printing u from ARRAY EdgeMap\n");
         results->ifarray = true;
         results->vertices = (Vertex *)malloc(u->numNodes * sizeof(Vertex));
         edgeMap_TopDown_MKII(g,u,f,removeDuplicates, results);
-        //printVertices(results);
     } else {
         if(u->ifarray){
-            printf("U is an ARRAY, Changing it to BITMAP.\n");
             u->ifarray = false;
             Vertex * vs = u->vertices;
-            if(vs == NULL){printf("ERROR EdgeMap: NULL VERTICES\n"); return NULL;}
-            // let's assume malloc will always succeed on lateday
             u->vertices_bitMap = (int *)malloc(sizeof(int) * (u->numNodes+1));
             memset(u->vertices_bitMap, 0, sizeof(int)*(u->numNodes+1));
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic, 512)
             for(int i = 0; i < u->size; ++i){
-                u->vertices_bitMap[vs[i]]++;
+                u->vertices_bitMap[vs[i]]=1;
             }
             free(u->vertices);
             u->vertices = NULL;
         }
-        //printf("Printing u from BITMAP EdgeMap\n");
-        //printBitMap(u);
         results->ifarray = false;
         results->vertices_bitMap = (int *)malloc((u->numNodes+1) * sizeof(int));
         memset(results->vertices_bitMap, 0, (u->numNodes+1) * sizeof(int));
         edgeMap_BotUp_MKII(g,u,f,removeDuplicates, results);
-        //printBitMap(results);
     }
     return results;
 }
@@ -276,7 +242,7 @@ static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
  * If returnSet is false, then the implementation of vertexMap should
  * return NULL (it need not build and create a vertex set)
  */
-template <class F>
+    template <class F>
 static VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
 {
     // because the new set will not be larger than u;
@@ -284,28 +250,31 @@ static VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
     // Maybe we donot neet to change for !array;
     // printf("Calling VMAP!\n");
     if(u->ifarray){
-        //printf("Printing u, %d\n", returnSet);
-        //printVertices(u);
         VertexSet * results = NULL;
+        int* re_bitmap = NULL;
         if(returnSet){
             results = newVertexSet(u->type, u->size, u->numNodes); 
-            results->ifarray = true;
-            results->vertices = (Vertex *)malloc(u->size * sizeof(Vertex));
+            results->ifarray = false;
+            //results->vertices = (Vertex *)malloc(u->size * sizeof(Vertex));
+            results->vertices_bitMap = (int *)malloc(sizeof(int) * (u->numNodes + 1));
+            memset(results->vertices_bitMap, 0, sizeof(int)*(u->numNodes+1));
+            re_bitmap = results->vertices_bitMap;
         }
         Vertex * start = u->vertices; 
-        int counter = 0;
-#pragma omp parallel for                                                        
+#pragma omp parallel for schedule(dynamic, 512)                                                        
         for (int i = 0; i < u->size; i++) {                                                      
-#pragma omp critical 
-            {
-                if(f(start[i]) && returnSet) {
-                    results->vertices[counter] = start[i];
-                    counter++;
-                }
+            if(f(start[i]) && returnSet) {
+                re_bitmap[start[i]] = 1;
             }
         }
         if(returnSet){
-            results->size = counter;
+            int *temp = (int *)malloc(sizeof(int) * (u->numNodes + 1));
+            memcpy(temp, re_bitmap, sizeof(int)*(u->numNodes + 1)); 
+            temp[u->numNodes] = 0;
+
+            inclusiveScan_inplace_yiming(temp, u->numNodes+1);
+            results->size = temp[u->numNodes];
+            free(temp);
             return results;
         } else {
             return NULL;
@@ -313,11 +282,8 @@ static VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
     } else {
         VertexSet * results = NULL;
         if(u->vertices_bitMap == NULL){
-            //printf("VMAP error: NULL bitmap.\n");
             return NULL;
         }
-        //printf("Printing U, %d:\n", returnSet);
-        //printBitMap(u);
         int *u_bitmap = u->vertices_bitMap;
         int *re_bitmap = NULL;
         if(returnSet){
@@ -327,16 +293,10 @@ static VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
             memset(results->vertices_bitMap, 0, sizeof(int)*(u->numNodes+1));
             re_bitmap = results->vertices_bitMap;
         }
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic, 512)
         for(int i = 0 ; i < u->numNodes; ++i){
-            int bitmap_count = u_bitmap[i];
-            while(bitmap_count > 0 && f(i)) {
-                //BUG here, might need to do while;
-                //printf("vmaping...for %d\n", i);
-                if(returnSet){
-                    re_bitmap[i]++;
-                }
-                bitmap_count--;
+            if(u_bitmap > 0 && f(i) && returnSet) {
+                re_bitmap[i]++;
             }
         }
         if(returnSet){
