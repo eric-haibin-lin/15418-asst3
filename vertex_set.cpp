@@ -7,6 +7,53 @@
 #include "mic.h"
 #include <ctime>
 
+
+void pmemset(int * start, int val, int size){
+#pragma omp parallel for schedule(static, 512)
+    for(int i = 0 ; i < size; i++){
+        start[i] = val;
+    }
+}
+
+int inclusiveScan_inplace_yiming(int * arr, int n)
+{
+    int  *partial, *temp;
+    int num_threads, work;
+    int i, mynum, last;
+    if(arr == NULL) return -1;
+#pragma omp parallel default(none) private(i, mynum, last) shared(arr, partial, temp, num_threads, work, n)
+    {
+#pragma omp single
+        {
+            num_threads = omp_get_num_threads();
+            if(!(partial = (int *) malloc (sizeof (int) * num_threads))) exit(-1);
+            if(!(temp = (int *) malloc (sizeof (int) * num_threads))) exit(-1);
+            work = n / num_threads + 1; /*sets length of sub-arrays*/
+        }
+        mynum = omp_get_thread_num();
+        /*calculate prefix-sum for each subarray*/
+        for(i = work * mynum + 1; i < work * mynum + work && i < n; i++)
+            arr[i] += arr[i - 1];
+        partial[mynum] = arr[i - 1];
+#pragma omp barrier
+        /*calculate prefix sum for the array that was made from last elements of each of the previous sub-arrays*/
+        for(i = 1; i < num_threads; i <<= 1) {
+            if(mynum >= i)
+                temp[mynum] = partial[mynum] + partial[mynum - i];
+#pragma omp barrier
+#pragma omp single
+            memcpy(partial + 1, temp + 1, sizeof(int) * (num_threads - 1));
+        }
+        /*update original array*/
+        for(i = work * mynum; i < (last = work * mynum + work < n ? work * mynum + work : n); i++)
+            arr[i] += partial[mynum] - arr[last - 1];
+    }
+    free(partial);
+    free(temp);
+    return 0;
+}
+
+
 /**
  * Creates an empty VertexSet with the given type and capacity.
  * numNodes is the total number of nodes in the graph.
@@ -24,11 +71,14 @@ VertexSet *newVertexSet(VertexSetType type, int capacity, int numNodes)
     new_vertex_set->numNodes = numNodes;
     new_vertex_set->type = type;
     new_vertex_set->capacity = capacity;
-    new_vertex_set->ifarray = true;
     new_vertex_set->vertices = NULL;
     new_vertex_set->vertices_bitMap = NULL;
-    new_vertex_set->vertices = (Vertex *) malloc(sizeof(Vertex) * capacity);
-
+    if(type == SPARSE){
+        new_vertex_set->vertices = (Vertex *) malloc(sizeof(Vertex) * capacity);
+    } else{
+        new_vertex_set->vertices_bitMap = (int *)malloc(sizeof(int) * numNodes);
+        pmemset(new_vertex_set->vertices_bitMap, 0, numNodes);
+    }
     return new_vertex_set;
 }
 
@@ -46,7 +96,7 @@ void addVertex(VertexSet *set, Vertex v)
 {
     // TODO: Implement
     // Assume this function is only called by outsider;
-    if(set->ifarray){
+    if(set->type == SPARSE){
         if(set->vertices == NULL){
             set->vertices = (Vertex *)malloc(sizeof(Vertex)*set->capacity);
         }
@@ -60,7 +110,7 @@ void addVertex(VertexSet *set, Vertex v)
 void removeVertex(VertexSet *set, Vertex v)
 {
     // O(n) version;
-    if(set->ifarray){
+    if(set->type == SPARSE){
         if(set->vertices == NULL){
             printf("Remove vertex from NULL array\n");
             return;

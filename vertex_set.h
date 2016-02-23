@@ -2,9 +2,11 @@
 #define __VERTEX_SET__
 
 #include "graph.h"
+#include <omp.h>
 
 typedef enum {
   SPARSE,
+  DENSE,
 } VertexSetType;
 
 //TODO add bitmap to this structure
@@ -15,7 +17,6 @@ typedef struct {
   VertexSetType type; 
   Vertex* vertices;
   int* vertices_bitMap;
-  bool ifarray;
 } VertexSet;
 
 VertexSet *newVertexSet(VertexSetType type, int capacity, int numNodes);
@@ -26,6 +27,8 @@ void removeVertex(VertexSet *set, Vertex v);
 void printBitMap(VertexSet *set);
 void printVertices(VertexSet *set);
 
+int inclusiveScan_inplace_yiming(int *arr, int n);
+void pmemset(int * start, int val, int size);
 
 VertexSet*  vertexUnion(VertexSet *u, VertexSet* v);
 

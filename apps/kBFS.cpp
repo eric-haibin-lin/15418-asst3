@@ -36,9 +36,11 @@ class RadiiUpdate
           // word-wide or
           __sync_fetch_and_or(&(nextVisited[dst][j]), visited[dst][j] | visited[src][j]);
 
-          int oldRadius = radii[dst];
+          //int oldRadius = radii[dst];
           if (radii[dst] != iter) {
-            changed = changed || __sync_bool_compare_and_swap(&radii[dst], oldRadius, iter);
+            radii[dst] = iter;
+//            changed = changed || __sync_bool_compare_and_swap(&radii[dst], oldRadius, iter);
+              changed = changed || true;
           }
         }
       }
