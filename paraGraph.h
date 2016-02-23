@@ -52,6 +52,13 @@ inline int inclusiveScan_inplace_yiming(int * arr, int n)
     return 0;
 }
 
+inline void pmemset(int * start, int val, int size){
+#pragma omp parallel for schedule(static, 512)
+    for(int i = 0 ; i < size; i++){
+        start[i] = val;
+    }
+}
+
 template<class F>
 VertexSet *edgeMap_BotUp_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicates, VertexSet * results){
     // The dynamic arrangement is done outside
@@ -110,7 +117,7 @@ VertexSet *edgeMap_TopDown_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicat
     // assume array->array creation;
     Vertex *vs = u->vertices;
     int * visited = (int*)malloc(sizeof(int) * (u->numNodes+1));
-    memset(visited, 0, sizeof(int) * (u->numNodes+1));
+    pmemset(visited, 0, (u->numNodes+1));
 #pragma omp parallel for schedule(dynamic, 512)
     for(int i = 0 ; i < u->size; ++i){
         Vertex s = vs[i];    
@@ -211,7 +218,7 @@ static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
             u->ifarray = false;
             Vertex * vs = u->vertices;
             u->vertices_bitMap = (int *)malloc(sizeof(int) * (u->numNodes+1));
-            memset(u->vertices_bitMap, 0, sizeof(int)*(u->numNodes+1));
+            pmemset(u->vertices_bitMap, 0, (u->numNodes+1));
 #pragma omp parallel for schedule(dynamic, 512)
             for(int i = 0; i < u->size; ++i){
                 u->vertices_bitMap[vs[i]]=1;
@@ -221,7 +228,7 @@ static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
         }
         results->ifarray = false;
         results->vertices_bitMap = (int *)malloc((u->numNodes+1) * sizeof(int));
-        memset(results->vertices_bitMap, 0, (u->numNodes+1) * sizeof(int));
+        pmemset(results->vertices_bitMap, 0, (u->numNodes+1));
         edgeMap_BotUp_MKII(g,u,f,removeDuplicates, results);
     }
     return results;
@@ -249,10 +256,6 @@ static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
     template <class F>
 static VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
 {
-    // because the new set will not be larger than u;
-    // Thus we donot need to change for array;
-    // Maybe we donot neet to change for !array;
-    // printf("Calling VMAP!\n");
     int size = 0;
     if(u->ifarray){
         VertexSet * results = NULL;
@@ -262,7 +265,7 @@ static VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
             results->ifarray = false;
             //results->vertices = (Vertex *)malloc(u->size * sizeof(Vertex));
             results->vertices_bitMap = (int *)malloc(sizeof(int) * (u->numNodes + 1));
-            memset(results->vertices_bitMap, 0, sizeof(int)*(u->numNodes+1));
+            pmemset(results->vertices_bitMap, 0, (u->numNodes+1));
             re_bitmap = results->vertices_bitMap;
         }
         Vertex * start = u->vertices; 
@@ -274,13 +277,7 @@ static VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
             }
         }
         if(returnSet){
-            int *temp = (int *)malloc(sizeof(int) * (u->numNodes + 1));
-            memcpy(temp, re_bitmap, sizeof(int)*(u->numNodes + 1)); 
-            temp[u->numNodes] = 0;
-
-            inclusiveScan_inplace_yiming(temp, u->numNodes+1);
-            results->size = temp[u->numNodes];
-            free(temp);
+            results->size = size;
             return results;
         } else {
             return NULL;
@@ -296,7 +293,7 @@ static VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
             results = newVertexSet(u->type, u->size, u->numNodes);
             results->ifarray = false;
             results->vertices_bitMap = (int *)malloc(sizeof(int) * (u->numNodes + 1));
-            memset(results->vertices_bitMap, 0, sizeof(int)*(u->numNodes+1));
+            pmemset(results->vertices_bitMap, 0, (u->numNodes+1));
             re_bitmap = results->vertices_bitMap;
         }
 #pragma omp parallel for schedule(dynamic, 512) reduction(+: size)
@@ -307,16 +304,7 @@ static VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
             }
         }
         if(returnSet){
-            //int *temp = (int *)malloc(sizeof(int) * (u->numNodes + 1));
-            //memcpy(temp, results->vertices_bitMap, sizeof(int)*(u->numNodes + 1)); 
-            //temp[u->numNodes] = 0;
-
-            //inclusiveScan_inplace_yiming(temp, u->numNodes+1);
-            //results->size = temp[u->numNodes];
-            //free(temp);
-            
             results->size = size;
-
             return results;
         } else {
             return NULL;
