@@ -11,8 +11,8 @@
 #include "graph.h"
 #include "mic.h"
 
-#define V_RATIO 50
-#define E_RATIO 25
+#define V_RATIO 10
+#define E_RATIO 5
 
 inline int pCountOutEdgeNum(Graph g, VertexSet *u)
 {
@@ -111,9 +111,10 @@ static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
 
     results->size = size;
     // already remove duplicate;
-    int outgoingEdge = pCountOutEdgeNum(g, results);
+    //int outgoingEdge = pCountOutEdgeNum(g, results);
     //int outgoingEdge = 0;
-    if( size * V_RATIO < u->numNodes || outgoingEdge * E_RATIO < u->numNodes){
+    //if( size * V_RATIO < u->numNodes || outgoingEdge * E_RATIO < u->numNodes){
+     if(size * V_RATIO < u->numNodes){
         int * temp_bitMap = results->vertices_bitMap; //Assume it is not NULL
         inclusiveScan_inplace_yiming(temp_bitMap, results->numNodes);
         results->type = SPARSE;
