@@ -27,7 +27,7 @@ VertexSet *newVertexSet(VertexSetType type, int capacity, int numNodes)
     new_vertex_set->ifarray = true;
     new_vertex_set->vertices = NULL;
     new_vertex_set->vertices_bitMap = NULL;
-    //new_vertex_set->vertices = (Vertex *) malloc(sizeof(Vertex) * capacity);
+    new_vertex_set->vertices = (Vertex *) malloc(sizeof(Vertex) * capacity);
 
     return new_vertex_set;
 }
@@ -52,12 +52,8 @@ void addVertex(VertexSet *set, Vertex v)
         }
         set->vertices[set->size++] = v;
     } else {
-        if(set->vertices_bitMap == NULL){
-            set->vertices_bitMap = (int *)malloc(sizeof(int)*(set->numNodes+1));
-            memset(set->vertices_bitMap, 0, sizeof(int) * (set->numNodes+1));
-        }
-        set->vertices_bitMap[v]++;
-        set->size++;
+        printf("dont add to a bitmap");
+        return;
     }
 }
 

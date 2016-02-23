@@ -98,15 +98,8 @@ VertexSet *edgeMap_BotUp_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicates
             }
         }
     }
-    // calculate count using ES
-    //results->vertices_bitMap[u->numNodes] = 0;
-    //int *temp = (int *)malloc(sizeof(int) * (u->numNodes + 1));
-    //memcpy(temp, results->vertices_bitMap, sizeof(int)*(u->numNodes + 1)); 
-    //temp[u->numNodes] = 0;
-    //inclusiveScan_inplace_yiming(temp, u->numNodes+1);
     
     results->size = size;
-    //free(temp);
     return results;
 }
 
@@ -123,7 +116,6 @@ VertexSet *edgeMap_TopDown_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicat
         Vertex s = vs[i];    
         const Vertex* start = outgoing_begin(g, s);
         const Vertex* end = outgoing_end(g, s);
-        //#pragma omp parallel for schedule(dynamic, 512) 
         for(const Vertex* v=start; v<end; v++){
             Vertex vn = *v;
             if(removeDuplicates && f.cond(vn) && f.update(s, vn)){
@@ -139,17 +131,13 @@ VertexSet *edgeMap_TopDown_MKII(Graph g, VertexSet *u, F &f, bool removeDuplicat
     Vertex * revs = results->vertices;
     int diff;
     if(visited[0]!=0){
-        diff = visited[0];
-        for(int j = 0 ; j < diff; ++j){
-            revs[j] = 0;
-        }
+        revs[0] = 0;
     }
 #pragma omp parallel for schedule(dynamic, 512)
     for(int i = 1; i < u->numNodes; ++i){
         if((diff = visited[i] - visited[i-1]) != 0){
             int offset = visited[i-1];
-            for(int j = 0 ; j < diff; ++j)
-                revs[offset + j] = i; 
+                revs[offset] = i; 
         }
     }
     free(visited);
@@ -206,7 +194,6 @@ static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
                 }
             }
 
-            // free 
             free(u->vertices_bitMap);
             u->vertices_bitMap = NULL;
         }
