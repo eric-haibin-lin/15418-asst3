@@ -1,5 +1,6 @@
 #include "paraGraph.h"
 #include "graph.h"
+#include <omp.h>
 
 
 #define INVALID_ID -1
@@ -62,7 +63,7 @@ class Decomposition
     }
     
     void claimBalls() {
-    	//TODO parallelize this part
+#pragma omp parallel for schedule(static, 512)
     	for (int i = 0; i < num_nodes_; i++) {
     		if (!visited_[i] && decomp_[i] != INVALID_ID) {
     			visited_[i] = true;
@@ -106,6 +107,7 @@ void decompose(graph *g, int *decomp, int* dus, int maxVal, int maxId) {
 		
 		decomposition.claimBalls();
 		
+		//TODO should I call freeVertexSet() here? 
 		free(frontier);
 		frontier = new_frontier;
 		
@@ -121,7 +123,7 @@ void decompose(graph *g, int *decomp, int* dus, int maxVal, int maxId) {
 	    		continue;
 	    	}
 	      	if (iter > maxVal - dus[i]) {
-	        	//add vertex
+	        	//add vertex				        	
 	        	addVertex(frontier, i);
 	        	visited[i] = true;
 				decomposition.update(i, i);
