@@ -102,7 +102,11 @@ void addVertex(VertexSet *set, Vertex v)
         }
         set->vertices[set->size++] = v;
     } else {
-        printf("dont add to a bitmap");
+        if(set->vertices_bitMap == NULL){
+            set->vertices_bitMap = (Vertex *)malloc(sizeof(int)*set->capacity);
+        }
+        set->vertices_bitMap[v] = 1;
+        set->size++;
         return;
     }
 }
