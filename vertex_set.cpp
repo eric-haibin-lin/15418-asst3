@@ -7,6 +7,7 @@
 #include "mic.h"
 #include <ctime>
 
+using namespace std;
 
 void pmemset(int * start, int val, int size){
 #pragma omp parallel for schedule(static, 512)
@@ -15,12 +16,14 @@ void pmemset(int * start, int val, int size){
     }
 }
 
-int inclusiveScan_inplace_yiming(int * arr, int n)
+int denseToSparse(int* vertices, int* buffer, int n)
 {
-    int  *partial, *temp;
+
+    int *arr, *partial, *temp;
     int num_threads, work;
     int i, mynum, last;
-    if(arr == NULL) return -1;
+    arr = vertices;
+
 #pragma omp parallel default(none) private(i, mynum, last) shared(arr, partial, temp, num_threads, work, n)
     {
 #pragma omp single
@@ -48,11 +51,34 @@ int inclusiveScan_inplace_yiming(int * arr, int n)
         for(i = work * mynum; i < (last = work * mynum + work < n ? work * mynum + work : n); i++)
             arr[i] += partial[mynum] - arr[last - 1];
     }
-    free(partial);
-    free(temp);
-    return 0;
+
+    int size = vertices[n-1];
+    if (vertices[0] == 1) {
+        buffer[0] = 0;
+    }
+
+#pragma omp parallel for POLICY
+    for (int i = 1; i < n; i++) {
+        if(vertices[i] != vertices[i-1])
+            buffer[vertices[i] - 1] = i;
+    }
+
+    return size;
 }
 
+
+MemoryManager::~MemoryManager()
+{
+    if(bufferArray)
+        delete[] bufferArray;
+
+    while (!setList.empty()) {
+        delete setList.front();
+        setList.pop_front();
+    }
+}
+
+MemoryManager memManager;
 
 /**
  * Creates an empty VertexSet with the given type and capacity.
@@ -66,30 +92,29 @@ VertexSet *newVertexSet(VertexSetType type, int capacity, int numNodes)
 {
     // One change here is we donot malloc record part when we initialize a new VertexSet;
     // One draw back is we have to allocate array ourside of the class(because I donot want function...)
-    VertexSet *new_vertex_set = (VertexSet *)malloc(sizeof(VertexSet));
+    if (memManager.bufferArray == NULL) {
+        memManager.bufferArray = new int[numNodes];
+    }
+    VertexSet *new_vertex_set = NULL;
+    if(memManager.setList.empty()){
+        new_vertex_set = (VertexSet *)malloc(sizeof(VertexSet));
+        new_vertex_set->vertices = (int *)malloc(sizeof(int) * numNodes);
+    } else {
+        new_vertex_set = memManager.setList.front();
+        memManager.setList.pop_front();
+    }
+    pmemset(new_vertex_set->vertices, 0, numNodes);
     new_vertex_set->size = 0;
     new_vertex_set->numNodes = numNodes;
     new_vertex_set->type = type;
     new_vertex_set->capacity = capacity;
-    new_vertex_set->vertices = NULL;
-    new_vertex_set->vertices_bitMap = NULL;
-    if(type == SPARSE){
-        new_vertex_set->vertices = (Vertex *) malloc(sizeof(Vertex) * capacity);
-    } else{
-        new_vertex_set->vertices_bitMap = (int *)malloc(sizeof(int) * numNodes);
-        pmemset(new_vertex_set->vertices_bitMap, 0, numNodes);
-    }
     return new_vertex_set;
 }
 
 void freeVertexSet(VertexSet *set)
 {
     // free the vertices before the set is freed
-    if(set->vertices != NULL)
-        free(set->vertices);
-    if(set->vertices_bitMap != NULL)
-        free(set->vertices_bitMap);
-    free(set);
+    memManager.setList.push_front(set);
 }
 
 void addVertex(VertexSet *set, Vertex v)
@@ -97,13 +122,10 @@ void addVertex(VertexSet *set, Vertex v)
     // TODO: Implement
     // Assume this function is only called by outsider;
     if(set->type == SPARSE){
-        if(set->vertices == NULL){
-            set->vertices = (Vertex *)malloc(sizeof(Vertex)*set->capacity);
-        }
         set->vertices[set->size++] = v;
     } else {
-        printf("dont add to a bitmap");
-        return;
+        set->vertices[v] = 1;
+        set->size++;
     }
 }
 
@@ -131,15 +153,15 @@ void removeVertex(VertexSet *set, Vertex v)
         memcpy(vs+pos, vs+pos+1, (set->size - pos - 1) * sizeof(int));
         set->size--;
     } else {
-        if(set->vertices_bitMap == NULL){
+        if(set->vertices == NULL){
             printf("Remove vertex from NULL bitmap array\n");
             return;
         }
-        if(set->vertices_bitMap[v] == 0){
+        if(set->vertices[v] == 0){
             printf("Remove vertex not found\n");
             return;
         }
-        set->vertices_bitMap[v]--;
+        set->vertices[v]--;
         set->size--;
     }
     return;
@@ -148,7 +170,7 @@ void removeVertex(VertexSet *set, Vertex v)
 void printBitMap(VertexSet *set){
     printf("BITMAP:%d==========================================================\n", set->numNodes);
     for(int i = 0; i < set->numNodes; ++i){
-        printf("%d\t", set->vertices_bitMap[i]);
+        printf("%d\t", set->vertices[i]);
     }
     printf("\n");
     printf("==========================================================\n");
@@ -163,6 +185,15 @@ void printVertices(VertexSet *set){
     printf("\n");
     printf("==========================================================\n");
     nanosleep((const struct timespec[]){{0, 500000000L}}, NULL);
+}
+
+void transform(VertexSet * set)
+{
+    if (set->type == DENSE) {
+        set->size = denseToSparse(set->vertices, memManager.bufferArray, set->numNodes);
+        swap(set->vertices, memManager.bufferArray);
+        set->type = SPARSE;
+    }
 }
 
 /**
