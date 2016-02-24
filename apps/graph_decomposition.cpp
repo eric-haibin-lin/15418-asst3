@@ -4,6 +4,16 @@
 
 #define INVALID_ID -1
 
+void printDecomp(int *decomp, int width) {
+	for (int i = 0; i < width; i++) {
+		for (int j = 0; j < width; j++) {
+			printf("%d ", decomp[i * width + j]);
+		}
+		printf("\n");
+	}
+	printf("\n");
+}
+
 class Decomposition
 {
   public:
@@ -20,18 +30,22 @@ class Decomposition
     }
 
     bool update(Vertex src, Vertex dst) {
-      	// TODO implement this with CAS
 		int old_decomp_id = decomp_[dst];
+		int new_decomp_id = decomp_[src] == INVALID_ID ? src : decomp_[src];
 		// assign decomp_id to the smaller one
-		if (old_decomp_id == INVALID_ID || old_decomp_id > src) {
-			decomp_[dst] = src;
-			return true;
+		while (old_decomp_id == INVALID_ID || old_decomp_id > new_decomp_id) {	
+			bool status = __sync_bool_compare_and_swap(&decomp_[dst], old_decomp_id, new_decomp_id);
+			// successful update new decomp_id
+			if (status) {
+				break;
+			}
+			old_decomp_id = decomp_[dst];
 		}
-		return false;
+		return true;
     }
 
     bool cond(Vertex v) {
-    	// return true if not visited yet.
+    	// return true if not visited yet
       	return !visited_[v];
     }
 
@@ -82,11 +96,14 @@ void decompose(graph *g, int *decomp, int* dus, int maxVal, int maxId) {
 
 	//init frontier. vertex with maxDu grows first
 	VertexSet *frontier = newVertexSet(SPARSE, num_nodes, num_nodes);
+	visited[maxId] = true;
+	decomposition.update(maxId, maxId);
 	addVertex(frontier, maxId);
 	int iter = 0;
 
 	while (frontier->size > 0) {
 		VertexSet *new_frontier = edgeMap<Decomposition>(g, frontier, decomposition);
+		
 		decomposition.claimBalls();
 		
 		free(frontier);
@@ -106,6 +123,8 @@ void decompose(graph *g, int *decomp, int* dus, int maxVal, int maxId) {
 	      	if (iter > maxVal - dus[i]) {
 	        	//add vertex
 	        	addVertex(frontier, i);
+	        	visited[i] = true;
+				decomposition.update(i, i);
 	      	}
 	    }
 	}
