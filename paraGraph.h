@@ -29,7 +29,7 @@ inline int pCountOutEdgeNum(Graph g, VertexSet *u)
             count += end - start;
         }
     } else {
-        int * u_bitmap = u->vertices_bitMap;
+        int * u_bitmap = u->vertices;
         int numNodes = u->numNodes;
 #pragma omp parallel for schedule(dynamic, 512) reduction(+: count)
         for(int i = 0 ; i < numNodes; i++){
@@ -73,7 +73,7 @@ static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
         bool removeDuplicates=true)
 {
     VertexSet * results = newVertexSet(DENSE, u->numNodes, u->numNodes);
-    int * re_bitmap = results->vertices_bitMap;
+    int * re_bitmap = results->vertices;
     int size = 0;
     if(u->type == SPARSE){
         Vertex * vs = u->vertices;
@@ -92,7 +92,7 @@ static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
             }
         }
     } else {
-        int * u_bitmap = u->vertices_bitMap;
+        int * u_bitmap = u->vertices;
 #pragma omp parallel for schedule(dynamic, 512) reduction(+:size)  
         for(int i = 0; i < u->numNodes; ++i){
             Vertex vn = i;
@@ -110,28 +110,8 @@ static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
     }
 
     results->size = size;
-    // already remove duplicate;
-    //int outgoingEdge = pCountOutEdgeNum(g, results);
-    //int outgoingEdge = 0;
-    //if( size * V_RATIO < u->numNodes || outgoingEdge * E_RATIO < u->numNodes){
-     if(size * V_RATIO < u->numNodes){
-        int * temp_bitMap = results->vertices_bitMap; //Assume it is not NULL
-        inclusiveScan_inplace_yiming(temp_bitMap, results->numNodes);
-        results->type = SPARSE;
-        results->vertices = (Vertex *)malloc(results->size * sizeof(Vertex));
-        Vertex *revs = results->vertices;
-        if(temp_bitMap[0]!=0){
-            revs[0] = 0;
-        }
-#pragma omp parallel for schedule(dynamic, 512)
-        for(int i = 1; i < u->numNodes; ++i){
-            if( temp_bitMap[i] != temp_bitMap[i-1]){
-                revs[temp_bitMap[i-1]] = i; 
-            }
-        }
-
-        free(results->vertices_bitMap);
-        results->vertices_bitMap = NULL;
+    if(size * V_RATIO < u->numNodes){
+        transform(results);
     }
     return results;
 }
@@ -186,14 +166,11 @@ static VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
         }
     } else {
         VertexSet * results = NULL;
-        if(u->vertices_bitMap == NULL){
-            return NULL;
-        }
-        int *u_bitmap = u->vertices_bitMap;
+        int *u_bitmap = u->vertices;
         int *re_bitmap = NULL;
         if(returnSet){
-            results = newVertexSet(DENSE, u->size, u->numNodes);
-            re_bitmap = results->vertices_bitMap;
+            results = newVertexSet(DENSE, u->numNodes, u->numNodes);
+            re_bitmap = results->vertices;
         }
 #pragma omp parallel for schedule(dynamic, 512) reduction(+: size)
         for(int i = 0 ; i < u->numNodes; ++i){

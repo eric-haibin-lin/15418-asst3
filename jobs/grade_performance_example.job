@@ -21,4 +21,4 @@ cp $execdir/jobs/grade_performance.py grade_performance.py
 cp $execdir/$exe $exe
 
 # Run my executable
-./grade_performance.py ./$exe
+time ./grade_performance.py ./$exe
