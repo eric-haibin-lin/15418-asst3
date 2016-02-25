@@ -39,8 +39,7 @@ void freeVertexSet(VertexSet *set);
 
 void addVertex(VertexSet *set, Vertex v);
 void removeVertex(VertexSet *set, Vertex v);
-void printBitMap(VertexSet *set);
-void printVertices(VertexSet *set);
+void printVertexSet(VertexSet *set);
 
 void transform(VertexSet * set);
 void pmemset(int * start, int val, int size);

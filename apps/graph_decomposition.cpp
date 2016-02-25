@@ -18,16 +18,10 @@ void printDecomp(int *decomp, int width) {
 class Decomposition
 {
   public:
-    Decomposition(Graph g, bool *visited, int *decomp)
+    Decomposition(Graph g, bool *visited, int *decomp, int* dus, int maxVal) 
+    :num_nodes_(g->num_nodes), visited_(visited), decomp_(decomp), dus_(dus), iter_(0), maxVal_(maxVal)
     {
-      	//init pointers
-		visited_ = visited;
-		num_nodes_ = g->num_nodes;
-		decomp_ = decomp;
-		//TODO parallelize this part 
-		for (int i = 0; i < num_nodes_; i++) {
-			decomp_[i] = INVALID_ID;
-		}
+		pmemset(decomp_, INVALID_ID, num_nodes_);
     }
 
     bool update(Vertex src, Vertex dst) {
@@ -35,30 +29,36 @@ class Decomposition
 		int new_decomp_id = decomp_[src] == INVALID_ID ? src : decomp_[src];
 		// assign decomp_id to the smaller one
 		while (old_decomp_id == INVALID_ID || old_decomp_id > new_decomp_id) {	
-			bool status = __sync_bool_compare_and_swap(&decomp_[dst], old_decomp_id, new_decomp_id);
 			// successful update new decomp_id
-			if (status) {
+			if(__sync_bool_compare_and_swap(&decomp_[dst], old_decomp_id, new_decomp_id)) {
 				break;
 			}
+			// failure, retry
 			old_decomp_id = decomp_[dst];
 		}
 		return true;
     }
 
+    // assign the center of vertex v to itself
+    void assignCenter(Vertex v) {
+    	decomp_[v] = v;
+    }
+
+    // return true if not visited yet
     bool cond(Vertex v) {
-    	// return true if not visited yet
       	return !visited_[v];
     }
 
     bool operator()(Vertex v) {
-		// if (visited_[i] == true) {
-  //   		continue;
-  //   	}
-  //     	if (iter > maxVal - dus[i]) {
-  //       	//add vertex
-  //       	//TODO do this in parallel
-  //       	addVertex(frontier, i);
-  //     	}
+    	//center is already visited
+    	if (visited_[v] == true) {
+    		return false;
+    	}
+      	if (iter_ > maxVal_ - dus_[v]) {
+        	visited_[v] = true;
+			assignCenter(v);
+			return true;
+      	}
       	return false;
     }
     
@@ -71,11 +71,86 @@ class Decomposition
     	}
     }
 
+    void debug() {
+    	printf("\n============ visited array ========================= \n");
+	    for (int i = 0; i < num_nodes_; i++) {
+	    	//center is already visited
+    		printf("%d ", visited_[i]);
+	    }
+		printf("\n============ dus array ========================= \n");
+	    for (int i = 0; i < num_nodes_; i++) {
+	    	//center is already visited
+    		printf("%d ", dus_[i]);
+	    }
+    	printf("\nfinding qualified new center with iter %d maxVal %d... \n", iter_, maxVal_);
+	    for (int i = 0; i < num_nodes_; i++) {
+	    	//center is already visited
+	    	if (visited_[i] == true) {
+	    		continue;
+	    	}
+	      	if (iter_ > maxVal_ - dus_[i]) {			        	
+	        	printf("found qualified new center %d \n", i);
+	      	}
+	    }
+    }
+
+    // increment to next iteration 
+    void nextIterate() {
+    	iter_ += 1;
+    }
+
   private:
     int num_nodes_;
     bool *visited_;
     Vertex *decomp_;
+    int* dus_;
+    int iter_;
+    int maxVal_;
 };
+
+
+inline bool *initVisitBitMap(int size) {
+	bool *visited = (bool *) malloc(sizeof(bool) * size);
+	// init values
+#pragma omp parallel for schedule(static, 512)
+    for(int i = 0 ; i < size; i++){
+        visited[i] = false;
+    }
+    return visited;
+}
+
+// return a full vertex set 
+inline VertexSet *initFullVertexSet(int num_nodes) {
+	VertexSet *full_vertex_set = (VertexSet *)malloc(sizeof(VertexSet));
+    Vertex *vertices = (int *)malloc(sizeof(int) * num_nodes);
+#pragma omp parallel for schedule(static, 512)
+    for(int i = 0 ; i < num_nodes; i++){
+        vertices[i] = 1;
+    }
+    full_vertex_set->vertices = vertices;
+    full_vertex_set->size = num_nodes;
+    full_vertex_set->numNodes = num_nodes;
+    full_vertex_set->type = DENSE;
+    full_vertex_set->capacity = num_nodes;
+    return full_vertex_set;
+}
+
+// return an initial frontier
+inline VertexSet *initFrontier(int num_nodes, int maxId) {
+	VertexSet *frontier = (VertexSet *)malloc(sizeof(VertexSet));
+    Vertex *vertices = (int *)malloc(sizeof(int) * num_nodes);
+#pragma omp parallel for schedule(static, 512)
+    for(int i = 0 ; i < num_nodes; i++){
+        vertices[i] = 0;
+    }
+    vertices[maxId] = 1;
+    frontier->vertices = vertices;
+    frontier->size = 1;
+    frontier->numNodes = num_nodes;
+    frontier->type = DENSE;
+    frontier->capacity = num_nodes;
+    return frontier;
+}
 
 /**
 	Given a graph, a deltamu per node, the max deltamu value, and the id
@@ -90,44 +165,32 @@ void decompose(graph *g, int *decomp, int* dus, int maxVal, int maxId) {
 	int num_nodes = g->num_nodes;
 
 	//init decomp instance
-	bool *visited = (bool *) malloc(sizeof(bool) * num_nodes);
-	//TODO use pmemset
-	memset(visited, 0, sizeof(bool) * num_nodes);
-	Decomposition decomposition(g, visited, decomp);
+	bool *visited = initVisitBitMap(num_nodes);
+
+	// init full vertex set 
+	VertexSet *full_vertex_set = initFullVertexSet(num_nodes);
+
+	Decomposition decomposition(g, visited, decomp, dus, maxVal);
 
 	//init frontier. vertex with maxDu grows first
-	VertexSet *frontier = newVertexSet(SPARSE, num_nodes, num_nodes);
+	VertexSet *frontier = initFrontier(num_nodes, maxId);
 	visited[maxId] = true;
-	decomposition.update(maxId, maxId);
-	addVertex(frontier, maxId);
-	int iter = 0;
+	decomposition.assignCenter(maxId);
 
 	while (frontier->size > 0) {
+		// do BFS
 		VertexSet *new_frontier = edgeMap<Decomposition>(g, frontier, decomposition);
-		
+
+		// claim visited balls
 		decomposition.claimBalls();
-		
-		//TODO should I call freeVertexSet() here? 
-		free(frontier);
-		frontier = new_frontier;
-		
-		iter++;
+		freeVertexSet(frontier);
+		decomposition.nextIterate();
 
 		// start growing all balls i at the next iter with 
     	// unvisited center i and with maxDu - dus[i] < iter
-    	// TODO use vertexMap to parallelize this part 
-    	// TODO use UnionSet to get the new frontier 
-	    for (int i = 0; i < num_nodes; i++) {
-	    	//center is already visited
-	    	if (visited[i] == true) {
-	    		continue;
-	    	}
-	      	if (iter > maxVal - dus[i]) {
-	        	//add vertex				        	
-	        	addVertex(frontier, i);
-	        	visited[i] = true;
-				decomposition.update(i, i);
-	      	}
-	    }
+    	// so that addVertex can be performed in parallel
+    	VertexSet *grown_frontier = vertexMap<Decomposition>(full_vertex_set, decomposition, true);
+	    frontier = vertexUnion(grown_frontier, new_frontier);
 	}
+	//TODO free resources
 }

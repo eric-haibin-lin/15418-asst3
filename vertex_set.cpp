@@ -167,23 +167,20 @@ void removeVertex(VertexSet *set, Vertex v)
     return;
 }
 
-void printBitMap(VertexSet *set){
-    printf("BITMAP:%d==========================================================\n", set->numNodes);
-    for(int i = 0; i < set->numNodes; ++i){
-        printf("%d\t", set->vertices[i]);
+void printVertexSet(VertexSet *set){
+    if (set->type == DENSE) {
+        printf("=====================BITMAP %d==================================\n", set->numNodes);
+        for(int i = 0; i < set->numNodes; ++i){
+            printf("%d ", set->vertices[i]);
+        }
+    } else {
+        printf("======================ARRAY %d==================================\n", set->size);
+        for(int i = 0; i < set->size; ++i){
+            printf("%d ", set->vertices[i]);
+        }
     }
     printf("\n");
-    printf("==========================================================\n");
-    nanosleep((const struct timespec[]){{0, 500000000L}}, NULL);
-}
-
-void printVertices(VertexSet *set){
-    printf("ARRAY:%d==========================================================\n", set->size);
-    for(int i = 0; i < set->size; ++i){
-        printf("%d\t", set->vertices[i]);
-    }
-    printf("\n");
-    printf("==========================================================\n");
+    printf("================================================================\n");
     nanosleep((const struct timespec[]){{0, 500000000L}}, NULL);
 }
 
@@ -196,16 +193,47 @@ void transform(VertexSet * set)
     }
 }
 
+// helper function for union(input set, output set)
+inline void vertexUnionHelper(VertexSet *input, VertexSet *output) {
+    Vertex* input_vertices = input->vertices;
+    Vertex* output_vertices = output->vertices;
+    int size = 0;
+    int count;
+    if (input->type == DENSE) {
+        count = input->numNodes;
+        //TODO use dynamic?
+#pragma omp parallel for schedule(static, 512) reduction(+: size)
+        for (int i = 0; i < count; i++) {
+            if (output_vertices[i] == 0 && input_vertices[i] == 1) {
+                output_vertices[i] = 1;
+                size += 1;
+            }
+        }
+    } else {
+        count = input->size;
+#pragma omp parallel for schedule(static, 512) reduction(+: size)
+        for (int i = 0; i < count; i++) {
+            int vertex = input_vertices[i];
+            if (output_vertices[vertex] == 0) {
+                output_vertices[vertex] = 1;
+                size += 1;
+            }
+        }
+    }
+    output->size += size;
+}
+
 /**
- * Returns the union of sets u and v. Destroys u and v.
+ * Returns the union of sets u and v. Destroys u and v. 
  */
 VertexSet* vertexUnion(VertexSet *u, VertexSet* v)
 {
-    // TODO: Implement
-
-    // STUDENTS WILL ONLY NEED TO IMPLEMENT THIS FUNCTION IN PART 3 OF
-    // THE ASSIGNMENT
-
-    return NULL;
+    // assume u is in type DENSE
+    // DANGER: change u in place! 
+    assert(u->type == DENSE);
+    vertexUnionHelper(v, u);
+    //TODO convert return set type
+    freeVertexSet(v);
+    return u;
 }
 
