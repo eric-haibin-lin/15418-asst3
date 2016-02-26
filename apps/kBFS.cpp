@@ -163,7 +163,6 @@ void kBFS(graph *g, int *distField) {
     memset(nextVisited[i], 0, sizeof(int) * NUMWORDS);
   }
 
-
   // initialize the frontier with K random nodes
   srand(0);
   int numSources = std::min(K, g->num_nodes);

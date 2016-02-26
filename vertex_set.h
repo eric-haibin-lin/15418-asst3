@@ -7,15 +7,11 @@
 
 using namespace std;
 
-
-#define POLICY schedule(dynamic, 512)
-
 typedef enum {
     SPARSE,
     DENSE,
 } VertexSetType;
 
-//TODO add bitmap to this structure
 typedef struct {
     int size;     // Number of nodes in the set
     int numNodes; // Number of nodes in the graph
@@ -32,7 +28,6 @@ class MemoryManager{
         MemoryManager(): bufferArray(NULL){};
         ~MemoryManager();
 };
-
 
 VertexSet *newVertexSet(VertexSetType type, int capacity, int numNodes);
 void freeVertexSet(VertexSet *set);

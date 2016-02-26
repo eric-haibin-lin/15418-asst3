@@ -14,6 +14,8 @@
 #define V_RATIO 10
 #define E_RATIO 5
 
+// count the number of outgoing edges in parallel 
+// potentially useful for making type conversion 
 inline int pCountOutEdgeNum(Graph g, VertexSet *u)
 {
     int count = 0;
@@ -39,7 +41,6 @@ inline int pCountOutEdgeNum(Graph g, VertexSet *u)
             const Vertex* end = outgoing_end(g, s);
             count += end - start;
         }
-
     }
     return count;
 }
@@ -68,7 +69,7 @@ inline int pCountOutEdgeNum(Graph g, VertexSet *u)
  * generation as these methods will be inlined.
  */
 
-    template <class F>
+template <class F>
 static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
         bool removeDuplicates=true)
 {
@@ -76,10 +77,12 @@ static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
     int * re_bitmap = results->vertices;
     int size = 0;
     if(u->type == SPARSE){
+        // take top down approach if sparse
         Vertex * vs = u->vertices;
 #pragma omp parallel for schedule(dynamic, 512) reduction(+ : size)
         for(int i = 0 ; i < u->size; ++i){
             Vertex s = vs[i];    
+            // s is not present 
             if(s < 0) continue;
             const Vertex* start = outgoing_begin(g, s);
             const Vertex* end = outgoing_end(g, s);
@@ -92,10 +95,12 @@ static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
             }
         }
     } else {
+        // take bottom up approach if dense
         int * u_bitmap = u->vertices;
 #pragma omp parallel for schedule(dynamic, 512) reduction(+:size)  
         for(int i = 0; i < u->numNodes; ++i){
             Vertex vn = i;
+            // no need to go further to check the incoming vertices
             if(!f.cond(vn)) continue;
             const Vertex* start = incoming_begin(g, vn);
             const Vertex* end = incoming_end(g, vn);
@@ -110,12 +115,12 @@ static VertexSet *edgeMap(Graph g, VertexSet *u, F &f,
     }
 
     results->size = size;
+    // convert the type to SPARSE if under threshold
     if(size * V_RATIO < u->numNodes){
         transform(results);
     }
     return results;
 }
-
 
 
 /*
@@ -147,6 +152,7 @@ static VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
             results = newVertexSet(SPARSE, u->size, u->numNodes);
             re_vertices = results->vertices;
         }
+        //size is accumulated via reduction 
 #pragma omp parallel for schedule(dynamic, 512) reduction(+: size)                                                        
         for (int i = 0; i < u->size; i++) {                                                      
             if(f(start[i]) && returnSet) {
@@ -154,6 +160,7 @@ static VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
                 size++;
                 continue;
             }
+            // if f() != true, mark absence 
             if(returnSet) {
                 re_vertices[i] = -1;
             }
@@ -176,6 +183,7 @@ static VertexSet *vertexMap(VertexSet *u, F &f, bool returnSet=true)
         for(int i = 0 ; i < u->numNodes; ++i){
             if(u_bitmap > 0 && f(i) && returnSet) {
                 re_bitmap[i] = 1;
+                // calculate size in reduction
                 size++;
             }
         }
