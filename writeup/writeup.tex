@@ -50,11 +50,16 @@
 
 \part{Question 1}
 
-When considering the time to transfer data between CPU and GPU, the performance observed is worse than that of sequential CPU based implementation(throughput: 13 GB/s, latency 22 ms). The overall latency is around 70 ms and the throughput is around 3.3 GB/s.
+%Writeup. Your write-up should contain a detailed description your optimization process and we will grade the writeup on the quality of this description. Make sure you tell us how you implemented (and parallelized) vertexMap and edgeMap, as well as how you chose to represent vertexSubsets. In addition to your algorithm description, we are looking for you to analyze the performance of your program. Specifically address the following questions:
 
-However, if the time to transfer data to and from device is excluded, the overall latency is 1.2 ms and the throughput is 177 GB/s.
+In our implementation, there're two representations of the same vertex set - sparse and dense. For a sparse vertex set, the vertices in the set are represented in an array with their vertex id's. The valid length of the array is equal to the number of vertices in the set. For a dense vertex set, the vertices in the set are represented by a bitmap - where 0 denotes an absent vertex, 1 denotes a present vertex. The length of the bitmap is always the number of all vertices in the graph. These two representation directly affects whether to take top down approach or bottom up approach in edgeMap. 
 
-The bandwidth values observed are roughly consistent with the reported bandwidths available to the different components. The reported bandwidth for PCIe 2.0 x16 is 16GB/s and NVIDIA GTX 480 GPU is 177 GB/s. This indicates that data transfer is the main bottleneck of the programme as a whole. When we examine the GPU part separately, it's also limited by GPU's memory bandwidth. This makes sense because SAXPY itself is a memory intensive function.
+Implementation of vertexMap 
+
+Where is the synchronization in your solution? Did you do anything to limit the overhead of synchronization?
+Why do you think your code (and the TA's reference code) is unable to achieve perfect speedup? (Is it workload imbalance? communication/synchronization? data movement?)
+At high thread counts, do you observe a drop-off in performance? If so, (and you may not) why do you think this might be the case?
+If you modified the apps, please describe the modifications and the reason behind your change.
 
 \clearpage
 
