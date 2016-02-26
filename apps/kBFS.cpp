@@ -148,6 +148,7 @@ void kBFS(graph *g, int *distField) {
   int iter = 0;
 
   // set up globals
+  #pragma omp parallel for schedule(static)
   for (int i = 0; i < g->num_nodes; i++)
     distField[i] = NA;
   radii = distField;
