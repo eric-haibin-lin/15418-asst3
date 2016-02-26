@@ -1,0 +1,135 @@
+% You should title the file with a .tex extension (hw1.tex, for example)
+\documentclass[11pt]{article}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{fancyhdr}
+\usepackage{fancybox}
+\usepackage{float}
+\usepackage{tikz}
+\usepackage{graphicx}
+
+\oddsidemargin0cm
+\topmargin-2cm     %I recommend adding these three lines to increase the
+\textwidth16.5cm   %amount of usable space on the page (and save trees)
+\textheight23.5cm
+
+\newcommand{\question}[2] {\vspace{.25in} \hrule\vspace{0.5em}
+\noindent{\bf #1: #2} \vspace{0.5em}
+\hrule \vspace{.10in}}
+\renewcommand{\part}[1] {\vspace{.10in} {\bf (#1)}}
+
+\newcommand{\myhwnum}{2}
+\newcommand{\myname}{Haibin Lin, Yiming Wu}
+\newcommand{\myandrew}{haibinl, wyiming}
+
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt plus 1pt}
+
+\pagestyle{fancyplain}
+\lhead{\fancyplain{}{\textbf{HW\myhwnum}}}      % Note the different brackets!
+\rhead{\fancyplain{}{\myname\\ \myandrew}}
+\chead{\fancyplain{}{15-618 }}
+
+\begin{document}
+
+\medskip                  % Skip a "medium" amount of space
+                                % (latex determines what medium is)
+                                % Also try: \bigskip, \littleskip
+
+\thispagestyle{plain}
+\begin{center}                  % Center the following lines
+{\Large 15-418 Assignment \myhwnum} \\
+\myname \\
+\myandrew \\
+29 Jan 2016 \\
+\end{center}
+
+\question{Part 1}{SAXPY}
+
+\part{Question 1}
+
+When considering the time to transfer data between CPU and GPU, the performance observed is worse than that of sequential CPU based implementation(throughput: 13 GB/s, latency 22 ms). The overall latency is around 70 ms and the throughput is around 3.3 GB/s.
+
+However, if the time to transfer data to and from device is excluded, the overall latency is 1.2 ms and the throughput is 177 GB/s.
+
+The bandwidth values observed are roughly consistent with the reported bandwidths available to the different components. The reported bandwidth for PCIe 2.0 x16 is 16GB/s and NVIDIA GTX 480 GPU is 177 GB/s. This indicates that data transfer is the main bottleneck of the programme as a whole. When we examine the GPU part separately, it's also limited by GPU's memory bandwidth. This makes sense because SAXPY itself is a memory intensive function.
+
+\clearpage
+
+\question{Part 3}{Circle Renderer}
+
+%Aspects of your work that you should mention in the write-up include:
+
+%Replicate the score table generated for your solution and specify which machine you ran your code on.
+
+\textbf{(Score)}
+
+\begin{figure}[h!]
+\centering
+   \includegraphics[width=0.7\textwidth]{score}
+   \caption{score tested on NVIDIA GTX 480 GPU}
+\end{figure}
+
+%Describe how you decomposed the problem and how you assigned work to CUDA thread blocks and threads (and maybe even warps).
+
+\textbf{(Approach)}
+
+We decomposed the problem into two phases: preprocessing and rendering.
+
+The idea is to split the image into 16 x 16 boxes, where each box contains 48 x 48 pixels. In preprocessing phase, for each box, we perform the circleInBox test to see which of the circles may intersect with it, and store the indices of these circles for further use. When rendering the pixels contained in this box, instead of examining every circle, the pixel only has to check whether it falls in the circles which pass the circleInBox test previously.
+
+\begin{figure}[H]
+\centering
+   \includegraphics[width=0.5\textwidth]{process.png}
+   \caption{We divide the picture into boxes and try to find out which circles have a part overlapping with the boxes.}
+\end{figure}
+
+
+All of the code is now in our \texttt{countCircles} fucntion. Now we describe the details of these two phases as following:
+
+In the preprocessing phase, we produce the circle indices in two steps.
+In step 1, we perform circleInBox test to mark 1 for circles which may intersect with the box, mark 0 otherwise.
+We launch $boxNumber$ * $numCircle$ CUDA threads in total(256 threads per block), where each thread examines a circle for a box.
+The result is stored in a array of length $boxNumber$ * $numCircle$.
+The code is in \texttt{kernel\_findCirclesInBoxes}.
+
+In step 2, we run \texttt{thrust} library exclusive scan to collect the indices of these circles who are marked with 1.
+When collecting the indices, we launch $boxNumber$ * numCircle CUDA threads to get the index of the circle (when prefix sum increases).
+Below is an example array content of the case where box $\#0$ intersects with circle $\#1$ and circle $\#2$, and box $\#1$ intersects with circle $\#0$ and circle $\#2$.
+The code is in \texttt{kernel\_getTotalSize} and \texttt{kernel\_findCircles}.
+
+\begin{figure}[h!]
+\centering
+   \includegraphics[width=0.7\textwidth]{index1}
+   \includegraphics[width=0.7\textwidth]{index2}
+   \caption{Result of preprocessing phase }
+\end{figure}
+
+In the rendering phase, each thread is responsible to render a pixel. It access the preprocessed indices of circles and test if the pixel falls in the circle. The indices of circles are in the ascending order and the pixel is rendered atomically. The number of launched CUDA threads is equal to the number of pixels in the image. In this phase, the threads in each CUDA block are all mapped to the same box in the image.
+
+\textbf{(Synchronization)}
+
+%Describe where synchronization occurs in your solution.
+The synchronization in our solution happens due to the fact that the phases has dependencies. Step 2 in the preprocessing phase cannot proceed until step 1 is done. Rendering phase cannot start until preprocessing phase is done. We call $cudaThreadSynchronize()$ to synchronize them.
+
+\textbf{(Communication)}
+
+We also try to reduce the communication between GPU processor and GPU memory. Since each pixel overlaps with multiple circles, render value is buffered locally and not flushed to the memory until the value is updated with all intersecting circles, instead of reading from and writing the value to memory every time.
+
+% What, if any, steps did you take to reduce communication requirements (e.g., synchronization or main memory bandwidth requirements)?
+
+% Briefly describe how you arrived at your final solution. What other approaches did you try along the way. What was wrong with them?
+
+\textbf{(Other solutions we tried)}
+
+We started with a simple approach, where there's no preprocessing and each CUDA thread renders just 1 pixel of the image by checking $numCircle$ circles sequentially. This is slow when the number of circles is large and each pixel falls only in the range of a small number of circles. It's not necessary to check all circles for each pixel. However, this approach work well when $numCircle$ is small (e.g. only 4 circles)
+
+Then we came up with preprocessing with boxes to reduce the number of circles to check for each pixel. The first implementation of this idea generates the indices of intersecting circles for each box sequentially, i.e. we first generate the indices for box $\#0$, then box $\#1$ and so on. Computing this sequentially is not fast, therefore we came up with the idea to store the indices for all boxes in one big array and compute everything in parallel.
+
+We also tried to use shared memory for each block, where the threads in the same block are mapped to the same box and share the same indices of circles. However, the result shows it actually slows down the rendering phase :(
+
+\clearpage
+\end{document}
+

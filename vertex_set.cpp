@@ -201,7 +201,6 @@ inline void vertexUnionHelper(VertexSet *input, VertexSet *output) {
     int count;
     if (input->type == DENSE) {
         count = input->numNodes;
-        //TODO use dynamic?
 #pragma omp parallel for schedule(static, 512) reduction(+: size)
         for (int i = 0; i < count; i++) {
             if (output_vertices[i] == 0 && input_vertices[i] == 1) {
@@ -232,7 +231,6 @@ VertexSet* vertexUnion(VertexSet *u, VertexSet* v)
     // DANGER: change u in place! 
     assert(u->type == DENSE);
     vertexUnionHelper(v, u);
-    //TODO convert return set type
     freeVertexSet(v);
     return u;
 }

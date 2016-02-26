@@ -160,8 +160,8 @@ void kBFS(graph *g, int *distField) {
     visited[i] = (int*) malloc(sizeof(int) * NUMWORDS);
     nextVisited[i] = (int*) malloc(sizeof(int) * NUMWORDS);
     //TODO use pmemset here! 
-    memset(visited[i], 0, sizeof(int) * NUMWORDS);
-    memset(nextVisited[i], 0, sizeof(int) * NUMWORDS);
+    pmemset(visited[i], 0, NUMWORDS);
+    pmemset(nextVisited[i], 0, NUMWORDS);
   }
 
 

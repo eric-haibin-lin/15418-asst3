@@ -192,5 +192,5 @@ void decompose(graph *g, int *decomp, int* dus, int maxVal, int maxId) {
     	VertexSet *grown_frontier = vertexMap<Decomposition>(full_vertex_set, decomposition, true);
 	    frontier = vertexUnion(grown_frontier, new_frontier);
 	}
-	//TODO free resources
+	freeVertexSet(frontier);
 }
