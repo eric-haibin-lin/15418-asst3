@@ -73,7 +73,11 @@ If the input vertex set is dense, we take the bottom up approach. Now we check a
 
 Both top down and bottom up approaches store the result in a temporary bitmap. We tried several threshold to determine the criteria/threshold to convert the type back to sparse. In general, if the number of vertex in the set is small, it's better to convert the type back to sparse. Currently we set the threshold to number of vertices in the set / number of nodes in graph = 0.1. We also tried to include the number of outgoing edges of the vertex set, but the performance we get is not significantly different. Therefore we chose the simpler threshold at the end.
 
-Regarding transform a bitmap back to array, prefix sum[1] is used to collect the vertices present in the bitmap (similar to what we did in the previous assignment). \\
+\textbf{Dense to sparse conversion}
+
+Regarding transform a bitmap back to array, prefix sum is used to collect the vertices present in the bitmap. Different from what we did in the previous assignment, we implemented the "scan on larger array" method mentioned in the lecture notes "Parallel Programming Case Studies". 
+
+In this implementation, the bitmap is divided into chunks. The number of chunk is equal to the number of threads available. For each chunk, we first do a sequential scan on the chunk to gather a local prefix sum. After this, local prefix sum results are combined to get the global prefix sum base for each chunk. Finally the we adjust all the local prefix sum according the to base. With this, we can easily collect all the vertex which appears in the set. \\
 
 \textbf{Synchronization}
 
@@ -92,9 +96,6 @@ On the other hand, we try to avoid the number of times of invoking malloc(), whi
 %At high thread counts, do you observe a drop-off in performance? If so, (and you may not) why do you think this might be the case?
 
 %If you modified the apps, please describe the modifications and the reason behind your change.
-
-
-[1] https://codingnights.wordpress.com/2011/08/16/prefix-sum-using-openmp/
 
 \clearpage
 \end{document}

@@ -9,6 +9,8 @@
 
 using namespace std;
 
+#define SCAN_BLOCK_SIZE 512
+
 void pmemset(int * start, int val, int size){
 #pragma omp parallel for schedule(static, 512)
     for(int i = 0 ; i < size; i++){
@@ -18,52 +20,52 @@ void pmemset(int * start, int val, int size){
 
 int denseToSparse(int* vertices, int* buffer, int n)
 {
-
-    int *arr, *partial, *temp;
-    int num_threads, work;
-    int i, mynum, last;
-    arr = vertices;
-
-#pragma omp parallel default(none) private(i, mynum, last) shared(arr, partial, temp, num_threads, work, n)
+    int *base_counter;
+#pragma omp parallel shared(base_counter)
+{
+    int total_num_blocks = omp_get_num_threads();
+    // buffer to store total block counts 
+    int block_size = (n + total_num_blocks - 1) / total_num_blocks;
+    int thread_id = omp_get_thread_num();
+#pragma omp single 
     {
-#pragma omp single
-        {
-            num_threads = omp_get_num_threads();
-            if(!(partial = (int *) malloc (sizeof (int) * num_threads))) exit(-1);
-            if(!(temp = (int *) malloc (sizeof (int) * num_threads))) exit(-1);
-            work = n / num_threads + 1; /*sets length of sub-arrays*/
-        }
-        mynum = omp_get_thread_num();
-        /*calculate prefix-sum for each subarray*/
-        for(i = work * mynum + 1; i < work * mynum + work && i < n; i++)
-            arr[i] += arr[i - 1];
-        partial[mynum] = arr[i - 1];
-#pragma omp barrier
-        /*calculate prefix sum for the array that was made from last elements of each of the previous sub-arrays*/
-        for(i = 1; i < num_threads; i <<= 1) {
-            if(mynum >= i)
-                temp[mynum] = partial[mynum] + partial[mynum - i];
-#pragma omp barrier
-#pragma omp single
-            memcpy(partial + 1, temp + 1, sizeof(int) * (num_threads - 1));
-        }
-        /*update original array*/
-        for(i = work * mynum; i < (last = work * mynum + work < n ? work * mynum + work : n); i++)
-            arr[i] += partial[mynum] - arr[last - 1];
+       base_counter = new int[total_num_blocks];
+       base_counter[0] = 0;
+    }
+    //for each block, do sequential scan
+    int base = thread_id * block_size;
+    // sequential scan 
+    for (int j = 1; j < block_size && base + j < n; j++) {
+        vertices[base + j] += vertices[base + j - 1];
     }
 
-    int size = vertices[n-1];
+    // make sure everyone finishes
+#pragma omp barrier
+#pragma omp single
+    // collect the base, linearly
+    for (int i = 1; i < total_num_blocks; i++) {
+        base_counter[i] = base_counter[i - 1] + vertices[i * block_size - 1];
+    }
+
+    // update vertices with the correct prefix sum
+    const int base_count = base_counter[thread_id];
+    for (int j = 0; j < block_size && base + j < n; j++) {
+        vertices[base + j] += base_count;
+    }
+    //prefix sum done
+#pragma omp barrier
+#pragma omp for schedule(static, 512)
+    for (int i = 1; i < n; i++) {
+        if (vertices[i] != vertices[i - 1]) {
+            buffer[vertices[i - 1]] = i;
+        }
+    }
+}
     if (vertices[0] == 1) {
         buffer[0] = 0;
     }
-
-#pragma omp parallel for POLICY
-    for (int i = 1; i < n; i++) {
-        if(vertices[i] != vertices[i-1])
-            buffer[vertices[i] - 1] = i;
-    }
-
-    return size;
+    delete base_counter;
+    return vertices[n - 1];
 }
 
 
@@ -119,7 +121,6 @@ void freeVertexSet(VertexSet *set)
 
 void addVertex(VertexSet *set, Vertex v)
 {
-    // TODO: Implement
     // Assume this function is only called by outsider;
     if(set->type == SPARSE){
         set->vertices[set->size++] = v;
